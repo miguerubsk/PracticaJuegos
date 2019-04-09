@@ -44,7 +44,7 @@ import utilidad.GestorSuscripciones;
  *
  * @author Roberto Martínez Fernández
  */
-public class AgenteJugador extends Agent implements Vocabulario{
+public class AgenteJugadorConecta extends Agent implements Vocabulario{
     
     private Ontology ontology;
 	private final ContentManager manager = (ContentManager) getContentManager();
