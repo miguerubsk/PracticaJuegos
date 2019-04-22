@@ -15,10 +15,15 @@ import jade.content.onto.basic.Action;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.NotUnderstoodException;
+import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+import jade.proto.ProposeResponder;
+import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import juegosTablero.Vocabulario;
@@ -29,6 +34,9 @@ import static juegosTablero.Vocabulario.tipoServicio;
 import juegosTablero.aplicacion.OntologiaJuegoBarcos;
 import juegosTablero.aplicacion.barcos.JuegoBarcos;
 import juegosTablero.dominio.elementos.Juego;
+import juegosTablero.dominio.elementos.JuegoAceptado;
+import juegosTablero.dominio.elementos.Jugador;
+import juegosTablero.dominio.elementos.Motivacion;
 import juegosTablero.dominio.elementos.ProponerJuego;
 
 /**
@@ -37,7 +45,8 @@ import juegosTablero.dominio.elementos.ProponerJuego;
  */
 public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private Ontology ontologiaBarcos;
-    
+    private Jugador jugador;
+    private Random rand;
     private final Codec codec = new SLCodec();
     private final ContentManager managerBarcos = (ContentManager) getContentManager();
     
@@ -60,8 +69,8 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(getAID());
 	ServiceDescription sd = new ServiceDescription();
-	sd.setType(NombreServicio.JUEGO_BARCOS.name());
-	sd.setName(NombreServicio.GRUPO_JUEGOS.toString());
+	//sd.setType();
+	sd.setName(NombreServicio.JUEGO_BARCOS.name());
 	dfd.addServices(sd);
 	try {
             DFService.register(this, dfd);
@@ -82,33 +91,12 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         JuegoBarcos juegoBarcos = new JuegoBarcos();
         ProponerJuego proponerJuego = new ProponerJuego(juego, juegoBarcos);        
         
-        ACLMessage msg;
-        
-        msg = new ACLMessage(ACLMessage.PROPOSE);
-        msg.setProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE);
-        msg.setSender(this.getAID());
-        msg.setLanguage(codec.getName());
-        msg.setOntology(ontologiaBarcos.getName());
-        msg.addReceiver(this.getAID());
-        
-        Action ac = new Action(this.getAID(), proponerJuego);
+        MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE),MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
+		addBehaviour(new TareaRecepcionProposicionJuego(this, temp));
+	}
         
         
-        System.out.println(msg);
-        
-        try {
-            // Prueba extracción del mensage
-
-            ac = (Action) managerBarcos.extractContent(msg);
-            ProponerJuego juegoPropuesto = (ProponerJuego) ac.getAction();
-            System.out.println("-------------");
-            System.out.println(juegoPropuesto);
-        } catch (Codec.CodecException | OntologyException ex) {
-            Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
-        
-    }
+   
 
     @Override
     protected void takeDown() {
@@ -122,4 +110,43 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         
         System.out.println("Finaliza la ejecución de " + this.getName());
     }
-}
+    
+    public class TareaRecepcionProposicionJuego extends ProposeResponder{
+        
+        /**
+         * Constructor de la tarea.
+         * @param a Agente que invoco la tarea. 
+         * @param mt Mensaje que se espera recibir.
+         */
+        public TareaRecepcionProposicionJuego(Agent a, MessageTemplate mt) {
+            super(a, mt);
+        }
+
+        @Override
+        protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {
+//            if("CentralJuegos".equals(propose.getSender().getName())){
+                if(rand.nextBoolean()){
+					ProponerJuego pj = new ProponerJuego();
+					try {
+						pj = (ProponerJuego) managerBarcos.extractContent(propose);
+					} catch (Codec.CodecException | OntologyException e) {
+						e.printStackTrace();
+					}
+                    ACLMessage accept = propose.createReply();
+                    accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                    accept.setContent(new JuegoAceptado(pj.getJuego(), jugador).toString());
+                    return accept; 
+                }else{
+                    Motivacion motivacion = new Motivacion(Motivo.PARTICIPACION_EN_JUEGOS_SUPERADA);
+                    ACLMessage reject = propose.createReply();
+                    reject.setPerformative(ACLMessage.REJECT_PROPOSAL);
+                    reject.setContent(motivacion.toString());
+                    return reject;
+                }  
+//            }else{
+//                throw new NotUnderstoodException("Remitente desconocido.\n");
+//            }
+        }
+        
+    }
+ }

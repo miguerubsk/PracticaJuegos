@@ -47,8 +47,8 @@ import utilidad.GestorSuscripciones;
 public class AgenteJugadorConecta extends Agent implements Vocabulario{
     
     private Ontology ontology;
-	private final ContentManager manager = (ContentManager) getContentManager();
-	private Jugador jugador;
+    private final ContentManager manager = (ContentManager) getContentManager();
+    private Jugador jugador;
     private Random rand;
     private int estadoTablero[][];
     
