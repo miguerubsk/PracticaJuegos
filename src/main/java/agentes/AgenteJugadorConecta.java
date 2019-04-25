@@ -73,8 +73,8 @@ public class AgenteJugadorConecta extends Agent implements Vocabulario{
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
-		sd.setType(tipoServicio);
-		sd.setName(NombreServicio.JUEGO_CONNECTA_4.name());
+		//sd.setType(tipoServicio);
+		sd.setName(NombreServicio.JUEGO_CONECTA_4.name());
 		dfd.addServices(sd);
 		try {
 				DFService.register(this, dfd);
@@ -140,8 +140,9 @@ public class AgenteJugadorConecta extends Agent implements Vocabulario{
         @Override
         protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {
 //            if("CentralJuegos".equals(propose.getSender().getName())){
+                ProponerJuego pj = new ProponerJuego();
                 if(rand.nextBoolean()){
-					ProponerJuego pj = new ProponerJuego();
+					
 					try {
 						pj = (ProponerJuego) manager.extractContent(propose);
 					} catch (Codec.CodecException | OntologyException e) {
@@ -152,7 +153,7 @@ public class AgenteJugadorConecta extends Agent implements Vocabulario{
                     accept.setContent(new JuegoAceptado(pj.getJuego(), jugador).toString());
                     return accept; 
                 }else{
-                    Motivacion motivacion = new Motivacion(Motivo.PARTICIPACION_EN_JUEGOS_SUPERADA);
+                    Motivacion motivacion = new Motivacion( pj.getJuego(), Motivo.PARTICIPACION_EN_JUEGOS_SUPERADA);
                     ACLMessage reject = propose.createReply();
                     reject.setPerformative(ACLMessage.REJECT_PROPOSAL);
                     reject.setContent(motivacion.toString());

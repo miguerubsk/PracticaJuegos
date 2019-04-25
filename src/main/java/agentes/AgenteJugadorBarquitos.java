@@ -30,7 +30,6 @@ import juegosTablero.Vocabulario;
 import juegosTablero.Vocabulario.ModoJuego;
 import juegosTablero.Vocabulario.NombreServicio;
 import juegosTablero.Vocabulario.TipoJuego;
-import static juegosTablero.Vocabulario.tipoServicio;
 import juegosTablero.aplicacion.OntologiaJuegoBarcos;
 import juegosTablero.aplicacion.barcos.JuegoBarcos;
 import juegosTablero.dominio.elementos.Juego;
@@ -125,8 +124,9 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         @Override
         protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {
 //            if("CentralJuegos".equals(propose.getSender().getName())){
+                ProponerJuego pj = new ProponerJuego();
                 if(rand.nextBoolean()){
-					ProponerJuego pj = new ProponerJuego();
+					
 					try {
 						pj = (ProponerJuego) managerBarcos.extractContent(propose);
 					} catch (Codec.CodecException | OntologyException e) {
@@ -137,7 +137,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
                     accept.setContent(new JuegoAceptado(pj.getJuego(), jugador).toString());
                     return accept; 
                 }else{
-                    Motivacion motivacion = new Motivacion(Motivo.PARTICIPACION_EN_JUEGOS_SUPERADA);
+                    Motivacion motivacion = new Motivacion( pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO);
                     ACLMessage reject = propose.createReply();
                     reject.setPerformative(ACLMessage.REJECT_PROPOSAL);
                     reject.setContent(motivacion.toString());

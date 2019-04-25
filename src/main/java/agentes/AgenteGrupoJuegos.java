@@ -25,8 +25,9 @@ import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionResponder;
 import java.util.Iterator;
 import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import juegosTablero.Vocabulario;
-import static juegosTablero.Vocabulario.tipoServicio;
 import juegosTablero.aplicacion.OntologiaJuegoConecta4;
 import juegosTablero.dominio.elementos.CompletarJuego;
 import juegosTablero.dominio.elementos.Grupo;
@@ -69,7 +70,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
-		sd.setType(tipoServicio);
+		//sd.setType(tipoServicio);
 		sd.setName(NombreServicio.GRUPO_JUEGOS.name());
 		dfd.addServices(sd);
 		try {
@@ -120,19 +121,22 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
 
         @Override
         protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {
+            CompletarJuego cj = new CompletarJuego(); 
             if(rand.nextBoolean()){
-                CompletarJuego cj = new CompletarJuego(); 
-				try {
-					cj = (CompletarJuego) manager.extractContent(propose);
-				} catch (Codec.CodecException | OntologyException e) {
-					e.printStackTrace();
-				}
+                
+                try {
+                    cj = (CompletarJuego) manager.extractContent(propose);
+                } catch (Codec.CodecException ex) {
+                    Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (OntologyException ex) {
+                    Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, ex);
+                }
                 ACLMessage accept = propose.createReply();
                 accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                 accept.setContent(new JuegoAceptado(cj.getJuego(), grupo).toString());
                 return accept; 
             }else{
-                Motivacion motivacion = new Motivacion(Motivo.PARTICIPACION_EN_JUEGOS_SUPERADA);
+                Motivacion motivacion = new Motivacion( cj.getJuego(), Motivo.PARTICIPACION_EN_JUEGOS_SUPERADA);
                 ACLMessage reject = propose.createReply();
                 reject.setPerformative(ACLMessage.REJECT_PROPOSAL);
                 reject.setContent(motivacion.toString());
