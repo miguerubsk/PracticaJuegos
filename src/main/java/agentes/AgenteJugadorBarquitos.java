@@ -23,6 +23,7 @@ import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.ProposeResponder;
+import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,7 +32,10 @@ import juegosTablero.Vocabulario.ModoJuego;
 import juegosTablero.Vocabulario.NombreServicio;
 import juegosTablero.Vocabulario.TipoJuego;
 import juegosTablero.aplicacion.OntologiaJuegoBarcos;
+import juegosTablero.aplicacion.barcos.ColocarBarcos;
 import juegosTablero.aplicacion.barcos.JuegoBarcos;
+import juegosTablero.aplicacion.barcos.Localizacion;
+import juegosTablero.aplicacion.barcos.PosicionBarcos;
 import juegosTablero.dominio.elementos.Juego;
 import juegosTablero.dominio.elementos.JuegoAceptado;
 import juegosTablero.dominio.elementos.Jugador;
@@ -45,14 +49,22 @@ import juegosTablero.dominio.elementos.ProponerJuego;
 public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private Ontology ontologiaBarcos;
     private Jugador jugador;
-    private Random rand;
+    private Random rand = new Random(System.currentTimeMillis());
     private final Codec codec = new SLCodec();
     private final ContentManager managerBarcos = (ContentManager) getContentManager();
+    private int TableroJ1[][] = new int[FILAS_BARCOS][COLUMNAS_BARCOS];
+    
+    
     
 
     @Override
     protected void setup() {
         System.out.println("Inicia la ejecución de " + this.getName());
+        for (int i = 0; i < 0; i++){
+            for (int c = 0; c<10; c++){
+                TableroJ1[i][c] = 0;
+            }
+        }
         
         try {
             ontologiaBarcos = OntologiaJuegoBarcos.getInstance();
@@ -78,13 +90,6 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             fe.printStackTrace();
 	}
         
-        //Juego juego = new Juego("Juego1", 3, ModoJuego.UNICO, TipoJuego.BARCOS);
-        //JuegoBarcos juegoBarcos = new JuegoBarcos();
-        //ProponerJuego proponerJuego = new ProponerJuego(juego, juegoBarcos);
-        
-        //Juego juego = new Juego("Juego1", 3, ModoJuego.UNICO, TipoJuego.CONECTA_4);
-        //JuegoConecta4 juegoConecta4 = new JuegoConecta4();
-        //ProponerJuego proponerJuego = new ProponerJuego(juego, juegoConecta4);
         
         Juego juego = new Juego("Juego", 3, ModoJuego.UNICO, TipoJuego.BARCOS);
         JuegoBarcos juegoBarcos = new JuegoBarcos();
@@ -127,11 +132,11 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
                 ProponerJuego pj = new ProponerJuego();
                 if(rand.nextBoolean()){
 					
-					try {
-						pj = (ProponerJuego) managerBarcos.extractContent(propose);
-					} catch (Codec.CodecException | OntologyException e) {
-						e.printStackTrace();
-					}
+                    try {
+                            pj = (ProponerJuego) managerBarcos.extractContent(propose);
+                    } catch (Codec.CodecException | OntologyException e) {
+                            e.printStackTrace();
+                    }
                     ACLMessage accept = propose.createReply();
                     accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                     accept.setContent(new JuegoAceptado(pj.getJuego(), jugador).toString());
@@ -143,10 +148,47 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
                     reject.setContent(motivacion.toString());
                     return reject;
                 }  
-//            }else{
-//                throw new NotUnderstoodException("Remitente desconocido.\n");
-//            }
         }
         
+    }
+    
+    public PosicionBarcos colocarBarcos(ColocarBarcos juego){
+        PosicionBarcos posiciones = new PosicionBarcos();
+        posiciones.setJuego(juego.getJuego());
+        
+        List posicionBarcos;
+        
+        for (int i = 0; i < NUM_ACORAZADOS; i++){
+            Boolean libre = false;
+            Localizacion barcos = new Localizacion();
+            barcos.setBarco(TipoBarco.ACORAZADO);
+            int x = rand.nextInt(10);
+            int y = rand.nextInt(10);
+            int orien = rand.nextInt(1);
+            if (orien == 1){
+                for (int a = y; a < 3; a++){
+                    if(TableroJ1[a][y] == 0)
+                        libre = true;
+                }
+                if (libre == true){
+                    barcos.setOrientacion(Orientacion.HORIZONTAL);
+                    for (int v = y; v<= 3; v++){
+                        TableroJ1[x][v]= 1;
+                    }
+                }
+            }
+            else{
+                barcos.setOrientacion(Orientacion.VERTICAL);
+                for (int v = x; v<= 3; v++){
+                    TableroJ1[v][y]= 1;
+                }
+            }
+                
+            
+            
+            
+        }
+        
+        return posiciones;
     }
  }
