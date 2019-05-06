@@ -60,6 +60,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     @Override
     protected void setup() {
         System.out.println("Inicia la ejecución de " + this.getName());
+        jugador = new Jugador(this.getLocalName(), this.getAID());
         for (int i = 0; i < 0; i++){
             for (int c = 0; c<10; c++){
                 TableroJ1[i][c] = 0;
@@ -80,7 +81,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(getAID());
 	ServiceDescription sd = new ServiceDescription();
-	//sd.setType();
+	sd.setType(TIPO_SERVICIO);
 	sd.setName(NombreServicio.JUEGO_BARCOS.name());
 	dfd.addServices(sd);
 	try {
@@ -127,29 +128,27 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         }
 
         @Override
-        protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {
-//            if("CentralJuegos".equals(propose.getSender().getName())){
-                ProponerJuego pj = new ProponerJuego();
-                if(rand.nextBoolean()){
-					
-                    try {
-                            pj = (ProponerJuego) managerBarcos.extractContent(propose);
+        protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {	
+            Boolean pollas = false;        
+            try {
+                        Action vergas = (Action) managerBarcos.extractContent(propose);
+                        ProponerJuego pj = (ProponerJuego) vergas.getAction();
+                        if(pollas){
+                            ACLMessage accept = propose.createReply();
+                            accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                            managerBarcos.fillContent(accept, new JuegoAceptado(pj.getJuego(), jugador));
+                            return accept;
+                        }else{
+                            ACLMessage refuse = propose.createReply();
+                            refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
+                            managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO));
+                            return refuse;
+                        }
                     } catch (Codec.CodecException | OntologyException e) {
                             e.printStackTrace();
                     }
-                    ACLMessage accept = propose.createReply();
-                    accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-                    accept.setContent(new JuegoAceptado(pj.getJuego(), jugador).toString());
-                    return accept; 
-                }else{
-                    Motivacion motivacion = new Motivacion( pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO);
-                    ACLMessage reject = propose.createReply();
-                    reject.setPerformative(ACLMessage.REJECT_PROPOSAL);
-                    reject.setContent(motivacion.toString());
-                    return reject;
-                }  
+            return null;
         }
-        
     }
     
     public PosicionBarcos colocarBarcos(ColocarBarcos juego){
@@ -157,6 +156,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         posiciones.setJuego(juego.getJuego());
         
         List posicionBarcos;
+        
         
         for (int i = 0; i < NUM_ACORAZADOS; i++){
             Boolean libre = false;
@@ -191,4 +191,4 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         
         return posiciones;
     }
- }
+}
