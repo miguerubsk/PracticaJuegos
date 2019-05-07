@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package Agentes;
+package agentes;
 
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
@@ -129,11 +129,11 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
 
         @Override
         protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {	
-            Boolean pollas = false;        
+            Boolean temp = true;        
             try {
                         Action vergas = (Action) managerBarcos.extractContent(propose);
                         ProponerJuego pj = (ProponerJuego) vergas.getAction();
-                        if(pollas){
+                        if(temp){
                             ACLMessage accept = propose.createReply();
                             accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                             managerBarcos.fillContent(accept, new JuegoAceptado(pj.getJuego(), jugador));
