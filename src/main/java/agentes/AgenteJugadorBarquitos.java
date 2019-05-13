@@ -22,8 +22,12 @@ import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
-import java.util.List;
+import java.util.ArrayList;
+import java.util.HashMap;
+import jade.util.leap.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,6 +44,7 @@ import juegosTablero.dominio.elementos.Juego;
 import juegosTablero.dominio.elementos.JuegoAceptado;
 import juegosTablero.dominio.elementos.Jugador;
 import juegosTablero.dominio.elementos.Motivacion;
+import juegosTablero.dominio.elementos.Posicion;
 import juegosTablero.dominio.elementos.ProponerJuego;
 
 /**
@@ -49,10 +54,11 @@ import juegosTablero.dominio.elementos.ProponerJuego;
 public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private Ontology ontologiaBarcos;
     private Jugador jugador;
+    private int juegosActivos;
     private Random rand = new Random(System.currentTimeMillis());
     private final Codec codec = new SLCodec();
     private final ContentManager managerBarcos = (ContentManager) getContentManager();
-    private int TableroJ1[][] = new int[FILAS_BARCOS][COLUMNAS_BARCOS];
+    private HashMap<String, int[][][]> Tableros;
     
     
     
@@ -61,11 +67,8 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     protected void setup() {
         System.out.println("Inicia la ejecución de " + this.getName());
         jugador = new Jugador(this.getLocalName(), this.getAID());
-        for (int i = 0; i < 0; i++){
-            for (int c = 0; c<10; c++){
-                TableroJ1[i][c] = 0;
-            }
-        }
+        Tableros = new HashMap<String, int[][][]>();
+            
         
         try {
             ontologiaBarcos = OntologiaJuegoBarcos.getInstance();
@@ -92,9 +95,8 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
 	}
         
         
-        Juego juego = new Juego("Juego", 3, ModoJuego.UNICO, TipoJuego.BARCOS);
+        juegosActivos = 0;
         JuegoBarcos juegoBarcos = new JuegoBarcos();
-        ProponerJuego proponerJuego = new ProponerJuego(juego, juegoBarcos);        
         
         MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE),MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
 		addBehaviour(new TareaRecepcionProposicionJuego(this, temp));
@@ -120,7 +122,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         
         /**
          * Constructor de la tarea.
-         * @param a Agente que invoco la tarea. 
+         * @param a Agente que invoco la tarea.
          * @param mt Mensaje que se espera recibir.
          */
         public TareaRecepcionProposicionJuego(Agent a, MessageTemplate mt) {
@@ -129,10 +131,28 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
 
         @Override
         protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {	
-            Boolean temp = true;        
+            Boolean temp = false;        
+            
+            
             try {
-                        Action vergas = (Action) managerBarcos.extractContent(propose);
-                        ProponerJuego pj = (ProponerJuego) vergas.getAction();
+                        Action ac = (Action) managerBarcos.extractContent(propose);
+                        ProponerJuego pj = (ProponerJuego) ac.getAction();
+//                        if(pj.getJuego().getTipoJuego()!= Vocabulario.TipoJuego.BARCOS){
+//                            ACLMessage refuse = propose.createReply();
+//                            refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
+//                            managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO));
+//                            return refuse;
+//                        }else if (juegosActivos<=2){
+//                            ACLMessage refuse = propose.createReply();
+//                            refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
+//                            managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.JUEGOS_ACTIVOS_SUPERADOS));
+//                            return refuse;
+//                        }else{
+//                            ACLMessage accept = propose.createReply();
+//                            accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+//                            managerBarcos.fillContent(accept, new JuegoAceptado(pj.getJuego(), jugador));
+//                            return accept;
+//                        }
                         if(temp){
                             ACLMessage accept = propose.createReply();
                             accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
@@ -151,43 +171,38 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         }
     }
     
+    public class TareaJugarPartida extends ContractNetResponder{
+        
+        public TareaJugarPartida(Agent a, MessageTemplate mt) {
+            super(a, mt);
+        }
+        
+        
+        
+    }
+    
     public PosicionBarcos colocarBarcos(ColocarBarcos juego){
         PosicionBarcos posiciones = new PosicionBarcos();
         posiciones.setJuego(juego.getJuego());
-        
-        List posicionBarcos;
-        
-        
-        for (int i = 0; i < NUM_ACORAZADOS; i++){
-            Boolean libre = false;
-            Localizacion barcos = new Localizacion();
-            barcos.setBarco(TipoBarco.ACORAZADO);
-            int x = rand.nextInt(10);
-            int y = rand.nextInt(10);
-            int orien = rand.nextInt(1);
-            if (orien == 1){
-                for (int a = y; a < 3; a++){
-                    if(TableroJ1[a][y] == 0)
-                        libre = true;
-                }
-                if (libre == true){
-                    barcos.setOrientacion(Orientacion.HORIZONTAL);
-                    for (int v = y; v<= 3; v++){
-                        TableroJ1[x][v]= 1;
-                    }
-                }
-            }
-            else{
-                barcos.setOrientacion(Orientacion.VERTICAL);
-                for (int v = x; v<= 3; v++){
-                    TableroJ1[v][y]= 1;
-                }
-            }
-                
-            
-            
-            
+        Localizacion locations = null;
+        Posicion coord = null;
+        ArrayList localizacionBarcos[] = new ArrayList[10];
+        for(int i=0; i<10; i++){
+            localizacionBarcos[i]=new ArrayList();
         }
+        
+        coord.setCoorX(1);
+        coord.setCoorY(1);
+        locations.setBarco(TipoBarco.FRAGATA);
+        locations.setOrientacion(Orientacion.HORIZONTAL);
+        locations.setPosicion(coord);
+        localizacionBarcos[0].add(locations);
+        
+        rand = new Random(System.currentTimeMillis());
+        
+        
+        List listaPosiciones = new jade.util.leap.ArrayList(localizacionBarcos[rand.nextInt(10)]);
+        posiciones.setLocalizacionBarcos(listaPosiciones);
         
         return posiciones;
     }
