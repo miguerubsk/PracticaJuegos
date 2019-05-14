@@ -27,6 +27,10 @@ import jade.proto.ProposeResponder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import jade.util.leap.List;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Random;
 import java.util.logging.Level;
@@ -39,11 +43,13 @@ import juegosTablero.aplicacion.OntologiaJuegoBarcos;
 import juegosTablero.aplicacion.barcos.ColocarBarcos;
 import juegosTablero.aplicacion.barcos.JuegoBarcos;
 import juegosTablero.aplicacion.barcos.Localizacion;
+import juegosTablero.aplicacion.barcos.MovimientoEntregado;
 import juegosTablero.aplicacion.barcos.PosicionBarcos;
 import juegosTablero.dominio.elementos.Juego;
 import juegosTablero.dominio.elementos.JuegoAceptado;
 import juegosTablero.dominio.elementos.Jugador;
 import juegosTablero.dominio.elementos.Motivacion;
+import juegosTablero.dominio.elementos.PedirMovimiento;
 import juegosTablero.dominio.elementos.Posicion;
 import juegosTablero.dominio.elementos.ProponerJuego;
 
@@ -54,7 +60,6 @@ import juegosTablero.dominio.elementos.ProponerJuego;
 public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private Ontology ontologiaBarcos;
     private Jugador jugador;
-    private int juegosActivos;
     private Random rand = new Random(System.currentTimeMillis());
     private final Codec codec = new SLCodec();
     private final ContentManager managerBarcos = (ContentManager) getContentManager();
@@ -95,11 +100,11 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
 	}
         
         
-        juegosActivos = 0;
         JuegoBarcos juegoBarcos = new JuegoBarcos();
         
         MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE),MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
 		addBehaviour(new TareaRecepcionProposicionJuego(this, temp));
+                addBehaviour(new TareaJugarPartida(this, temp));
 	}
         
         
@@ -137,36 +142,30 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             try {
                         Action ac = (Action) managerBarcos.extractContent(propose);
                         ProponerJuego pj = (ProponerJuego) ac.getAction();
-//                        if(pj.getJuego().getTipoJuego()!= Vocabulario.TipoJuego.BARCOS){
-//                            ACLMessage refuse = propose.createReply();
-//                            refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
-//                            managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO));
-//                            return refuse;
-//                        }else if (juegosActivos<=2){
-//                            ACLMessage refuse = propose.createReply();
-//                            refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
-//                            managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.JUEGOS_ACTIVOS_SUPERADOS));
-//                            return refuse;
-//                        }else{
-//                            ACLMessage accept = propose.createReply();
-//                            accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-//                            managerBarcos.fillContent(accept, new JuegoAceptado(pj.getJuego(), jugador));
-//                            return accept;
-//                        }
-                        if(temp){
-                            ACLMessage accept = propose.createReply();
-                            accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-                            managerBarcos.fillContent(accept, new JuegoAceptado(pj.getJuego(), jugador));
-                            return accept;
-                        }else{
+                        if(pj.getJuego().getTipoJuego()!= Vocabulario.TipoJuego.BARCOS){
                             ACLMessage refuse = propose.createReply();
                             refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
                             managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO));
                             return refuse;
+                        }else{
+                            if(propose.getSender().equals("AgenteTablero")){
+                                ACLMessage ponerBarcos = propose.createReply();
+                                ponerBarcos.setPerformative(ACLMessage.PROPOSE);
+                                ColocarBarcos variable = (ColocarBarcos) managerBarcos.extractContent(propose);
+                                managerBarcos.fillContent(ponerBarcos, colocarBarcos(variable));
+                                return ponerBarcos;
+                            }else{
+                                ACLMessage accept = propose.createReply();
+                                accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                                managerBarcos.fillContent(accept, new JuegoAceptado(pj.getJuego(), jugador));
+                                return accept;
+                            }
                         }
                     } catch (Codec.CodecException | OntologyException e) {
                             e.printStackTrace();
-                    }
+                    } catch (IOException ex) {
+                Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
+            }
             return null;
         }
     }
@@ -177,33 +176,102 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             super(a, mt);
         }
         
-        
-        
+        protected ACLMessage ResponderjugarPartida (ACLMessage solicitarMovimiento) throws Codec.CodecException, OntologyException{
+            
+            Action ac = (Action) managerBarcos.extractContent(solicitarMovimiento);
+            PedirMovimiento pm = (PedirMovimiento) ac.getAction();
+            
+            if(!pm.getJugadorActivo().equals(this.getAgent())){
+                ACLMessage propose = solicitarMovimiento.createReply();
+                propose.setPerformative(ACLMessage.PROPOSE);
+                return propose;
+            }else{
+                ACLMessage propose = solicitarMovimiento.createReply();
+                propose.setPerformative(ACLMessage.PROPOSE);
+                managerBarcos.fillContent(propose, jugarPartida(pm));
+                return propose;
+            }            
+        }
     }
     
-    public PosicionBarcos colocarBarcos(ColocarBarcos juego){
+    public PosicionBarcos colocarBarcos(ColocarBarcos juego) throws FileNotFoundException, IOException{
         PosicionBarcos posiciones = new PosicionBarcos();
         posiciones.setJuego(juego.getJuego());
         Localizacion locations = null;
         Posicion coord = null;
-        ArrayList localizacionBarcos[] = new ArrayList[10];
+        ArrayList<Localizacion> localizacionBarcos[] = new ArrayList[10];
         for(int i=0; i<10; i++){
             localizacionBarcos[i]=new ArrayList();
         }
         
-        coord.setCoorX(1);
-        coord.setCoorY(1);
-        locations.setBarco(TipoBarco.FRAGATA);
-        locations.setOrientacion(Orientacion.HORIZONTAL);
-        locations.setPosicion(coord);
-        localizacionBarcos[0].add(locations);
+        FileReader fr = new FileReader("barcos.ini");
+        BufferedReader bf = new BufferedReader(fr);
         
-        rand = new Random(System.currentTimeMillis());
+        String barco="";
+        while ((barco = bf.readLine())!=null) {
+            String[] parts = barco.split("-");
+            
+            coord.setCoorX(Integer.parseInt(parts[1]));
+            coord.setCoorY(Integer.parseInt(parts[2]));
+            locations.setPosicion(coord);
+            switch(Integer.parseInt(parts[3])){
+                case 1:
+                    locations.setBarco(TipoBarco.FRAGATA);
+                case 2:
+                    locations.setBarco(TipoBarco.DESTRUCTOR);
+                case 3:
+                    locations.setBarco(TipoBarco.ACORAZADO);
+                case 4:
+                    locations.setBarco(TipoBarco.PORTAAVIONES);
+            }
+            switch(Integer.parseInt(parts[4])){
+                case 1:
+                    locations.setOrientacion(Orientacion.HORIZONTAL);
+                case 2:
+                    locations.setOrientacion(Orientacion.VERTICAL);
+            }
+            
+            localizacionBarcos[Integer.parseInt(parts[0])].add(locations);
+        }        
         
         
-        List listaPosiciones = new jade.util.leap.ArrayList(localizacionBarcos[rand.nextInt(10)]);
+        int acceso = rand.nextInt(10);
+        List listaPosiciones = new jade.util.leap.ArrayList(localizacionBarcos[acceso]);
         posiciones.setLocalizacionBarcos(listaPosiciones);
         
+        int Tablero[][][] = null;
+        
+        for (int x=0; x<10; x++){
+            for (int y =0; y<10; y++){
+                for(int z = 0; z < 2; z++){
+                    Tablero[x][y][z] = 0;
+                }
+                //Tablero[x][y][0] = 0;
+            }
+        }
+        
+        for(int i = 0; i<9; i++){
+            if(localizacionBarcos[acceso].get(i).getOrientacion()==Orientacion.HORIZONTAL){
+                for (int z = localizacionBarcos[acceso].get(i).getPosicion().getCoorX(); z < localizacionBarcos[acceso].get(i).getPosicion().getCoorX()+localizacionBarcos[acceso].get(i).getBarco().getCasillas(); z++){
+                    Tablero[z][localizacionBarcos[acceso].get(i).getPosicion().getCoorY()][0] = 1;
+                }
+            }else{
+                for(int z = localizacionBarcos[acceso].get(i).getPosicion().getCoorY(); z < localizacionBarcos[acceso].get(i).getPosicion().getCoorY()+localizacionBarcos[acceso].get(i).getBarco().getCasillas(); z++){
+                    Tablero[localizacionBarcos[acceso].get(i).getPosicion().getCoorX()][z][0] = 1;
+                }
+            }
+        }
+        
+        
+        Tableros.put(juego.getJuego().getIdJuego(),Tablero);
+        
         return posiciones;
+    }
+    
+    public MovimientoEntregado jugarPartida(PedirMovimiento juego){
+        
+        
+        
+        return null;
     }
 }
