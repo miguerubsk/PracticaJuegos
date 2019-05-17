@@ -61,6 +61,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private Ontology ontologiaBarcos;
     private Jugador jugador;
     private Random rand = new Random(System.currentTimeMillis());
+    private Vocabulario.Efecto resultadoAnterior;
     private final Codec codec = new SLCodec();
     private final ContentManager managerBarcos = (ContentManager) getContentManager();
     private HashMap<String, int[][][]> Tableros;
@@ -188,7 +189,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             }else{
                 ACLMessage propose = solicitarMovimiento.createReply();
                 propose.setPerformative(ACLMessage.PROPOSE);
-                managerBarcos.fillContent(propose, jugarPartida(pm));
+                managerBarcos.fillContent(propose, calcularJugada(pm));
                 return propose;
             }            
         }
@@ -268,8 +269,21 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         return posiciones;
     }
     
-    public MovimientoEntregado jugarPartida(PedirMovimiento juego){
+    public MovimientoEntregado calcularJugada(PedirMovimiento juego){
         
+        Random rand = new Random(System.currentTimeMillis());
+        int x, y;
+        
+        if (/**resultadoAnterior != Efecto.TOCADO*/true){
+            do{
+                x = rand.nextInt(10);
+                y = rand.nextInt(10);
+            }while(Tableros.get(juego.getJuego().getIdJuego())[x][y][1] != 0);
+            Posicion coord = new Posicion(x, y);
+            MovimientoEntregado jugada = new MovimientoEntregado(juego.getJuego(), coord);
+            
+            return jugada;
+        }
         
         
         return null;
