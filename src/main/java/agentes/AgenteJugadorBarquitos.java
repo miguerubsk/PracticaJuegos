@@ -15,6 +15,7 @@ import jade.content.onto.basic.Action;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.FailureException;
 import jade.domain.FIPAAgentManagement.NotUnderstoodException;
 import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
@@ -41,6 +42,7 @@ import juegosTablero.Vocabulario.NombreServicio;
 import juegosTablero.Vocabulario.TipoJuego;
 import juegosTablero.aplicacion.OntologiaJuegoBarcos;
 import juegosTablero.aplicacion.barcos.ColocarBarcos;
+import juegosTablero.aplicacion.barcos.EstadoJuego;
 import juegosTablero.aplicacion.barcos.JuegoBarcos;
 import juegosTablero.aplicacion.barcos.Localizacion;
 import juegosTablero.aplicacion.barcos.MovimientoEntregado;
@@ -68,6 +70,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     ArrayList<Localizacion> localizacionBarcos[] = new ArrayList[10];
     Localizacion locations = null;
     Posicion coord = null;
+    
     
     
     
@@ -132,8 +135,9 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             }
             JuegoBarcos juegoBarcos = new JuegoBarcos();
             MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE),MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
+            MessageTemplate temp2 = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET),MessageTemplate.MatchPerformative(ACLMessage.CFP));
             addBehaviour(new TareaRecepcionProposicionJuego(this, temp));
-            addBehaviour(new TareaJugarPartida(this, temp));
+            addBehaviour(new TareaJugarPartida(this, temp2));
         } catch (FileNotFoundException ex) {
             Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
@@ -216,35 +220,49 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             super(a, mt);
         }
         
-        protected ACLMessage ResponderjugarPartida (ACLMessage solicitarMovimiento) throws Codec.CodecException, OntologyException{
+        protected ACLMessage HandleCfp (ACLMessage cfp) throws RefuseException, FailureException, NotUnderstoodException{
             
-            Action ac = (Action) managerBarcos.extractContent(solicitarMovimiento);
-            PedirMovimiento pm = (PedirMovimiento) ac.getAction();
-            
-            if(!pm.getJugadorActivo().equals(this.getAgent())){
-                ACLMessage propose = solicitarMovimiento.createReply();
-                propose.setPerformative(ACLMessage.PROPOSE);
-                return propose;
-            }else{
-                ACLMessage propose = solicitarMovimiento.createReply();
-                propose.setPerformative(ACLMessage.PROPOSE);
-                managerBarcos.fillContent(propose, calcularJugada(pm));
-                return propose;
-            }            
+            try{
+                Action ac = (Action) managerBarcos.extractContent(cfp);
+                PedirMovimiento pm = (PedirMovimiento) ac.getAction();
+                
+                ACLMessage accept = cfp.createReply();
+                accept.setPerformative(ACLMessage.PROPOSE);
+                if (pm.getJugadorActivo().getAgenteJugador().getName().equals(jugador.getAgenteJugador().getName())){
+                    managerBarcos.fillContent(accept, calcularJugada(pm));
+                }
+                
+                return accept;
+                
+            }catch (Codec.CodecException | OntologyException e) {
+                Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, e);
+            }
+            throw new FailureException("No se ha podido completar la jugada.");
         }
+        
+        protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
+            try{
+                MovimientoEntregado me = (MovimientoEntregado) managerBarcos.extractContent(accept);
+                
+                
+                Estado estado = ComprobarEstadoTablero(me.getJuego().getIdJuego());
+                //TODO
+                ACLMessage informDone = accept.createReply();
+                informDone.setPerformative(ACLMessage.INFORM);
+                managerBarcos.fillContent(informDone, new EstadoJuego(me.getJuego(), estado));
+                return informDone;
+                
+            } catch (Codec.CodecException | OntologyException e) {
+                Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, e);
+            }
+            throw new FailureException("No se ha podido completar la jugada.");
+        }
+        
     }
     
     public PosicionBarcos colocarBarcos(ColocarBarcos juego) throws FileNotFoundException, IOException{
         PosicionBarcos posiciones = new PosicionBarcos();
         posiciones.setJuego(juego.getJuego());
-        
-        
-        
-        
-        
-        
-                
-        
         
         int acceso = rand.nextInt(10);
         List listaPosiciones = new jade.util.leap.ArrayList(localizacionBarcos[acceso]);
@@ -298,4 +316,23 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         
         return null;
     }
+    
+    public Estado ComprobarEstadoTablero(String idPartida){
+        int numTocadosJ1 = 0;
+        int numTocadosJ2 = 0;
+        for(int x = 0; x < 10; x++){
+            for(int y = 0; y < 10; y++){
+                if(Tableros.get(idPartida)[x][y][1] == 0) numTocadosJ1++;
+                if(Tableros.get(idPartida)[x][y][0] == 0) numTocadosJ2++;
+            }
+        }
+        if(numTocadosJ1 == 21){
+            return Estado.GANADOR;
+        }else if(numTocadosJ2 == 21){
+            return Estado.FIN_PARTIDA;
+        }else{
+            return Estado.SEGUIR_JUGANDO;
+        }
+    }    
+    
 }
