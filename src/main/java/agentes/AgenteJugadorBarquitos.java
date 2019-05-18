@@ -65,47 +65,86 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private final Codec codec = new SLCodec();
     private final ContentManager managerBarcos = (ContentManager) getContentManager();
     private HashMap<String, int[][][]> Tableros;
+    ArrayList<Localizacion> localizacionBarcos[] = new ArrayList[10];
+    Localizacion locations = null;
+    Posicion coord = null;
     
     
     
 
     @Override
     protected void setup() {
-        System.out.println("Inicia la ejecución de " + this.getName());
-        jugador = new Jugador(this.getLocalName(), this.getAID());
-        Tableros = new HashMap<String, int[][][]>();
-            
-        
+        FileReader fr = null;
         try {
-            ontologiaBarcos = OntologiaJuegoBarcos.getInstance();
-        } catch (BeanOntologyException ex) {
-            Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println("Inicia la ejecución de " + this.getName());
+            jugador = new Jugador(this.getLocalName(), this.getAID());
+            Tableros = new HashMap<String, int[][][]>();
+            for(int i=0; i<10; i++){
+                localizacionBarcos[i]=new ArrayList();
+            }
+            fr = new FileReader("barcos.ini");
+            BufferedReader bf = new BufferedReader(fr);
+            String barco="";
+        while ((barco = bf.readLine())!=null) {
+            String[] parts = barco.split("-");
+            
+            coord.setCoorX(Integer.parseInt(parts[1]));
+            coord.setCoorY(Integer.parseInt(parts[2]));
+            locations.setPosicion(coord);
+            switch(Integer.parseInt(parts[3])){
+                case 1:
+                    locations.setBarco(TipoBarco.FRAGATA);
+                case 2:
+                    locations.setBarco(TipoBarco.DESTRUCTOR);
+                case 3:
+                    locations.setBarco(TipoBarco.ACORAZADO);
+                case 4:
+                    locations.setBarco(TipoBarco.PORTAAVIONES);
+            }
+            switch(Integer.parseInt(parts[4])){
+                case 1:
+                    locations.setOrientacion(Orientacion.HORIZONTAL);
+                case 2:
+                    locations.setOrientacion(Orientacion.VERTICAL);
+            }
+            
+            localizacionBarcos[Integer.parseInt(parts[0])].add(locations);
         }
-        
-        managerBarcos.registerLanguage(codec);
-	managerBarcos.registerOntology(ontologiaBarcos);
-        
-        
-        // Registro en las páginas Amarillas
-        DFAgentDescription dfd = new DFAgentDescription();
-        dfd.setName(getAID());
-	ServiceDescription sd = new ServiceDescription();
-	sd.setType(TIPO_SERVICIO);
-	sd.setName(NombreServicio.JUEGO_BARCOS.name());
-	dfd.addServices(sd);
-	try {
-            DFService.register(this, dfd);
-	}
-	catch (FIPAException fe) {
-            fe.printStackTrace();
-	}
-        
-        
-        JuegoBarcos juegoBarcos = new JuegoBarcos();
-        
-        MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE),MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
-		addBehaviour(new TareaRecepcionProposicionJuego(this, temp));
-                addBehaviour(new TareaJugarPartida(this, temp));
+            try {
+                ontologiaBarcos = OntologiaJuegoBarcos.getInstance();
+            } catch (BeanOntologyException ex) {
+                Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            managerBarcos.registerLanguage(codec);
+            managerBarcos.registerOntology(ontologiaBarcos);
+            // Registro en las páginas Amarillas
+            DFAgentDescription dfd = new DFAgentDescription();
+            dfd.setName(getAID());
+            ServiceDescription sd = new ServiceDescription();
+            sd.setType(TIPO_SERVICIO);
+            sd.setName(NombreServicio.JUEGO_BARCOS.name());
+            dfd.addServices(sd);
+            try {
+                DFService.register(this, dfd);
+            }
+            catch (FIPAException fe) {
+                fe.printStackTrace();
+            }
+            JuegoBarcos juegoBarcos = new JuegoBarcos();
+            MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE),MessageTemplate.MatchPerformative(ACLMessage.PROPOSE));
+            addBehaviour(new TareaRecepcionProposicionJuego(this, temp));
+            addBehaviour(new TareaJugarPartida(this, temp));
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                fr.close();
+            } catch (IOException ex) {
+                Logger.getLogger(AgenteJugadorBarquitos.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
 	}
         
         
@@ -198,42 +237,13 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     public PosicionBarcos colocarBarcos(ColocarBarcos juego) throws FileNotFoundException, IOException{
         PosicionBarcos posiciones = new PosicionBarcos();
         posiciones.setJuego(juego.getJuego());
-        Localizacion locations = null;
-        Posicion coord = null;
-        ArrayList<Localizacion> localizacionBarcos[] = new ArrayList[10];
-        for(int i=0; i<10; i++){
-            localizacionBarcos[i]=new ArrayList();
-        }
         
-        FileReader fr = new FileReader("barcos.ini");
-        BufferedReader bf = new BufferedReader(fr);
         
-        String barco="";
-        while ((barco = bf.readLine())!=null) {
-            String[] parts = barco.split("-");
-            
-            coord.setCoorX(Integer.parseInt(parts[1]));
-            coord.setCoorY(Integer.parseInt(parts[2]));
-            locations.setPosicion(coord);
-            switch(Integer.parseInt(parts[3])){
-                case 1:
-                    locations.setBarco(TipoBarco.FRAGATA);
-                case 2:
-                    locations.setBarco(TipoBarco.DESTRUCTOR);
-                case 3:
-                    locations.setBarco(TipoBarco.ACORAZADO);
-                case 4:
-                    locations.setBarco(TipoBarco.PORTAAVIONES);
-            }
-            switch(Integer.parseInt(parts[4])){
-                case 1:
-                    locations.setOrientacion(Orientacion.HORIZONTAL);
-                case 2:
-                    locations.setOrientacion(Orientacion.VERTICAL);
-            }
-            
-            localizacionBarcos[Integer.parseInt(parts[0])].add(locations);
-        }        
+        
+        
+        
+        
+                
         
         
         int acceso = rand.nextInt(10);
