@@ -67,6 +67,10 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private final Codec codec = new SLCodec();
     private final ContentManager managerBarcos = (ContentManager) getContentManager();
     private HashMap<String, int[][][]> Tableros;
+    private static final int AGUA = 0;
+    private static final int BARCO = 1;
+    private static final int TOCADO = 2;
+    private static final int DISPARO = 3;
     ArrayList<Localizacion> localizacionBarcos[] = new ArrayList[10];
     Localizacion locations = null;
     Posicion coord = null;
@@ -243,6 +247,11 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
             try{
                 MovimientoEntregado me = (MovimientoEntregado) managerBarcos.extractContent(accept);
+                if(Tableros.get(me.getJuego().getIdJuego())[me.getMovimiento().getCoorX()][me.getMovimiento().getCoorY()][0] == BARCO || Tableros.get(me.getJuego().getIdJuego())[me.getMovimiento().getCoorX()][me.getMovimiento().getCoorY()][0] == TOCADO){
+                    Tableros.get(me.getJuego().getIdJuego())[me.getMovimiento().getCoorX()][me.getMovimiento().getCoorY()][0] = TOCADO;
+                }else{
+                    Tableros.get(me.getJuego().getIdJuego())[me.getMovimiento().getCoorX()][me.getMovimiento().getCoorY()][0] = DISPARO;
+                }
                 
                 
                 Estado estado = ComprobarEstadoTablero(me.getJuego().getIdJuego());
@@ -273,20 +282,19 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         for (int x=0; x<10; x++){
             for (int y =0; y<10; y++){
                 for(int z = 0; z < 2; z++){
-                    Tablero[x][y][z] = 0;
+                    Tablero[x][y][z] = AGUA;
                 }
-                //Tablero[x][y][0] = 0;
             }
         }
         
         for(int i = 0; i<9; i++){
             if(localizacionBarcos[acceso].get(i).getOrientacion()==Orientacion.HORIZONTAL){
                 for (int z = localizacionBarcos[acceso].get(i).getPosicion().getCoorX(); z < localizacionBarcos[acceso].get(i).getPosicion().getCoorX()+localizacionBarcos[acceso].get(i).getBarco().getCasillas(); z++){
-                    Tablero[z][localizacionBarcos[acceso].get(i).getPosicion().getCoorY()][0] = 1;
+                    Tablero[z][localizacionBarcos[acceso].get(i).getPosicion().getCoorY()][0] = BARCO;
                 }
             }else{
                 for(int z = localizacionBarcos[acceso].get(i).getPosicion().getCoorY(); z < localizacionBarcos[acceso].get(i).getPosicion().getCoorY()+localizacionBarcos[acceso].get(i).getBarco().getCasillas(); z++){
-                    Tablero[localizacionBarcos[acceso].get(i).getPosicion().getCoorX()][z][0] = 1;
+                    Tablero[localizacionBarcos[acceso].get(i).getPosicion().getCoorX()][z][0] = BARCO;
                 }
             }
         }
@@ -306,7 +314,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             do{
                 x = rand.nextInt(10);
                 y = rand.nextInt(10);
-            }while(Tableros.get(juego.getJuego().getIdJuego())[x][y][1] != 0);
+            }while(Tableros.get(juego.getJuego().getIdJuego())[x][y][1] != AGUA);
             Posicion coord = new Posicion(x, y);
             MovimientoEntregado jugada = new MovimientoEntregado(juego.getJuego(), coord);
             
@@ -322,14 +330,14 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         int numTocadosJ2 = 0;
         for(int x = 0; x < 10; x++){
             for(int y = 0; y < 10; y++){
-                if(Tableros.get(idPartida)[x][y][1] == 0) numTocadosJ1++;
-                if(Tableros.get(idPartida)[x][y][0] == 0) numTocadosJ2++;
+                if(Tableros.get(idPartida)[x][y][1] == TOCADO) numTocadosJ1++;
+                if(Tableros.get(idPartida)[x][y][0] == TOCADO) numTocadosJ2++;
             }
         }
         if(numTocadosJ1 == 21){
             return Estado.GANADOR;
         }else if(numTocadosJ2 == 21){
-            return Estado.FIN_PARTIDA;
+            return Estado.ABANDONO;
         }else{
             return Estado.SEGUIR_JUGANDO;
         }
