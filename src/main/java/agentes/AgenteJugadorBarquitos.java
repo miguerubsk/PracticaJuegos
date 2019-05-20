@@ -72,8 +72,8 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
     private static final int TOCADO = 2;
     private static final int DISPARO = 3;
     ArrayList<Localizacion> localizacionBarcos[] = new ArrayList[10];
-    Localizacion locations = null;
-    Posicion coord = null;
+    Localizacion locations = new Localizacion();
+    Posicion coord = new Posicion();
     
     
     
