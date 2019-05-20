@@ -273,7 +273,7 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
         PosicionBarcos posiciones = new PosicionBarcos();
         posiciones.setJuego(juego.getJuego());
         
-        int acceso = rand.nextInt(10);
+        int acceso = 0; //rand.nextInt(10);
         List listaPosiciones = new jade.util.leap.ArrayList(localizacionBarcos[acceso]);
         posiciones.setLocalizacionBarcos(listaPosiciones);
         
