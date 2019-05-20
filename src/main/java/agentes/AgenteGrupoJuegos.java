@@ -25,7 +25,9 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionResponder;
+import jade.util.leap.List;
 import jade.wrapper.StaleProxyException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.logging.Level;
@@ -33,9 +35,12 @@ import java.util.logging.Logger;
 import juegosTablero.Vocabulario;
 import juegosTablero.aplicacion.OntologiaJuegoBarcos;
 import juegosTablero.aplicacion.OntologiaJuegoConecta4;
+import juegosTablero.dominio.elementos.ClasificacionJuego;
 import juegosTablero.dominio.elementos.CompletarJuego;
 import juegosTablero.dominio.elementos.Grupo;
+import juegosTablero.dominio.elementos.Juego;
 import juegosTablero.dominio.elementos.JuegoAceptado;
+import juegosTablero.dominio.elementos.Jugador;
 import juegosTablero.dominio.elementos.Motivacion;
 import utilidad.GestorSuscripciones;
 
@@ -60,6 +65,10 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
     
     private GestorSuscripciones gestorSuscripciones;
     private Grupo grupo;
+    private Juego juego;
+    private ArrayList<Jugador> jugadores;
+    private ArrayList<Integer> puntuaciones;
+    private int partida;
     private Random rand;
     
     /**
@@ -76,6 +85,8 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         ontologias = new Ontology[NUM_JUEGOS_IMPLEMENTADOS];
     	grupo = new Grupo(this.getLocalName(), this.getAID());
         gestorSuscripciones = new GestorSuscripciones();
+        jugadores = new ArrayList<>();
+        partida = 0;
         rand = new Random();
         
         //Regisro de la Ontología
@@ -90,7 +101,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(getAID());
 	ServiceDescription sd = new ServiceDescription();
-	sd.setType("GrupoJuegos");
+	sd.setType(TIPO_SERVICIO);
 	sd.setName(NombreServicio.GRUPO_JUEGOS.name());
 	dfd.addServices(sd);
 	try {
@@ -129,6 +140,27 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         System.out.println("Finaliza la ejecución de " + this.getName());
     }
 
+    public ArrayList<Jugador> obtenerJugadores(CompletarJuego cj){
+        ArrayList<Jugador> jugadoresAct = new ArrayList<>();
+        if(cj.getJuego().getModoJuego() == ModoJuego.UNICO){
+            for(int i=0; i<cj.getListaJugadores().size(); i++){
+                jugadoresAct.add((Jugador)cj.getListaJugadores().get(i));
+            }
+        }else{
+            for(int i=0; i<cj.getListaJugadores().size(); i++){
+                jugadoresAct.add((Jugador)cj.getListaJugadores().get(i));
+            }
+        }
+        System.out.println(jugadoresAct.get(0));
+        return jugadoresAct;
+    }
+    
+    public ClasificacionJuego obtenerClasificacion(){
+        List jugadoresClasificacion = new jade.util.leap.ArrayList(jugadores);
+        List puntuacionesClasificacion = new jade.util.leap.ArrayList(puntuaciones);
+        return new ClasificacionJuego(juego, jugadoresClasificacion, puntuacionesClasificacion);
+    }
+    
     //Tareas del Agente Grupo de Juegos.
     
     /**
@@ -151,6 +183,11 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             try {
                 Action ac = (Action)  manager[ONTOLOGIA_BARCOS].extractContent(propose);
                 CompletarJuego cj = (CompletarJuego) ac.getAction();
+                jugadores.clear();
+                for(Iterator<Jugador> it = cj.getListaJugadores().iterator(); it.hasNext();){
+                    jugadores.add(it.next());
+                }
+                juego = cj.getJuego();
                 if(cj.getJuego().getTipoJuego() == TipoJuego.CONECTA_4 || cj.getJuego().getTipoJuego() == TipoJuego.BARCOS){
                     if(cj.getJuego().getTipoJuego() == TipoJuego.BARCOS){
                         //Se crea el tablero para los Barquitos.
@@ -162,9 +199,12 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
                     }else{
                         //Se crea el tablero para el Conecta 4.
                         try {
-                            Object[] args = new Object[1];
+                            partida++;
+                            Object[] args = new Object[3];
                             args[0] = cj;
-                            getContainerController().createNewAgent("TableroConecta4", "agentes.AgenteTablero", args).start();
+                            args[1] = partida;
+                            args[2] = obtenerJugadores(cj);
+                            getContainerController().createNewAgent("TableroConecta4_"+cj.getJuego().getIdJuego()+"_"+partida, "agentes.AgenteTableroConecta4", args).start();
                         }catch(StaleProxyException e) {
                            Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, e);
                         }
@@ -249,7 +289,15 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         @Override
         public void onTick() {
             ACLMessage respuesta = new ACLMessage(ACLMessage.INFORM);
-            //respuesta.setContent());
+            respuesta.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
+            respuesta.setSender(myAgent.getAID());
+            respuesta.setLanguage(codec.getName());
+            respuesta.setOntology(ontologias[ONTOLOGIA_CONECTA4].getName());
+            try{
+                manager[ONTOLOGIA_BARCOS].fillContent(respuesta, obtenerClasificacion());
+            }catch(Codec.CodecException | OntologyException e) {
+                Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, e);
+            }
             for(Iterator<SubscriptionResponder.Subscription> it = gestorSuscripciones.iterator();it.hasNext();){
                 it.next().notify(respuesta);
             }
