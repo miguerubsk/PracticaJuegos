@@ -13,18 +13,26 @@ import jade.content.onto.BeanOntologyException;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
 import jade.content.onto.basic.Action;
+import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.TickerBehaviour;
+import jade.core.behaviours.WakerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.FailureException;
+import jade.domain.FIPAAgentManagement.NotUnderstoodException;
+import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.proto.AchieveREInitiator;
+import jade.proto.AchieveREResponder;
 import jade.proto.ContractNetInitiator;
+import jade.util.leap.List;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -41,12 +49,14 @@ import javafx.util.Pair;
 import juegosTablero.Vocabulario;
 import juegosTablero.Vocabulario.Color;
 import juegosTablero.Vocabulario.Estado;
+import juegosTablero.Vocabulario.Puntuacion;
 import juegosTablero.aplicacion.OntologiaJuegoConecta4;
 import juegosTablero.aplicacion.conecta4.EstadoJuego;
 import juegosTablero.aplicacion.conecta4.Ficha;
 import juegosTablero.aplicacion.conecta4.JuegoConecta4;
 import juegosTablero.aplicacion.conecta4.Movimiento;
 import juegosTablero.aplicacion.conecta4.MovimientoEntregado;
+import juegosTablero.dominio.elementos.ClasificacionJuego;
 import juegosTablero.dominio.elementos.CompletarJuego;
 import juegosTablero.dominio.elementos.Juego;
 import juegosTablero.dominio.elementos.Jugador;
@@ -66,6 +76,7 @@ public class AgenteTableroConecta4 extends Agent{
     public static final int JUGADOR_1 = 0;
     public static final int JUGADOR_2 = 1;
     public static final int NULL = -1;
+    public static final int TIEMPO_DE_ESPERA = 60000;
     public static final Movimiento MOV_VICTORIA = new Movimiento(new Ficha(Color.AMARILLO), new Posicion(-1, -1));
     
     // Para la generación y obtención del contenido de los mensages
@@ -81,6 +92,7 @@ public class AgenteTableroConecta4 extends Agent{
     private ArrayList<Movimiento> listaMov;
     private ArrayList<Jugador> jugadores;
     private Juego juego;
+    private AID grupoJuegos;
     private int tablero[][];
     private int indexJugadorAct;
     private int puntuaciones[];
@@ -114,6 +126,7 @@ public class AgenteTableroConecta4 extends Agent{
         for(int i=0; i<cj.getListaJugadores().size(); i++){
             puntuaciones[i] = 0;
         }
+        grupoJuegos = (AID) args[3];
         partida = (int) args[1];
         log = new File("log/"+juego.getModoJuego().name()+"_"+juego.getIdJuego()+"-Partida_"+partida+".log");
         repeticion = false;
@@ -159,12 +172,12 @@ public class AgenteTableroConecta4 extends Agent{
     protected void takeDown() {
 
         //Desregistro de las Páginas Amarillas
-        try {
-            DFService.deregister(this);
-	}
-            catch (FIPAException fe) {
-            fe.printStackTrace();
-	}
+//        try {
+//            DFService.deregister(this);
+//	}
+//            catch (FIPAException fe) {
+//            fe.printStackTrace();
+//	}
         
         //Se liberan los recuros y se despide
         System.out.println("Finaliza la ejecución de " + this.getName());
@@ -275,7 +288,7 @@ public class AgenteTableroConecta4 extends Agent{
                 }
             }
         }catch (IOException e){
-            
+            System.out.println("No se puede acceder al fichero.");
         }
         
     }
@@ -368,7 +381,7 @@ public class AgenteTableroConecta4 extends Agent{
                 if(puntuaciones[indexJugadorAct] == juego.getMinVictorias()){
                     //Fin de la partida. Ya hay un ganador.
                     System.out.println("Fin del juego, Ganador:"+jugadores.get(indexJugadorAct).getNombre());
-                    //generar y enviar los resultados al GrupoJuegos.
+                    //Los resultados se enviaran al GrupoJuegos al finalizar la representacion (Tarea ProcesarMovimiento).
                 }else{
                     //Se juega una nueva ronda.
                     NuevaRonda();
@@ -376,6 +389,66 @@ public class AgenteTableroConecta4 extends Agent{
             }
         }
         
+    }
+    
+    /**
+     * Tarea que envia los resulatados de la partida al agente GrupoJuegos (Protocolo Request).
+     */
+    public class TareaInformarResultados extends AchieveREResponder{
+        
+        /**
+         * Constructor de la tarea.
+         * @param a Agente que invoco la tarea. 
+         * @param mt Mensaje que se espera recibir.
+         */
+        public TareaInformarResultados(Agent a, MessageTemplate mt) {
+            super(a, mt);
+        }
+
+        /**
+         * Funcion que procesa un mensaje de solicitud.
+         * @param request Mensaje con la solicitud.
+         * @return Mensaje de aceptacion.
+         * @throws NotUnderstoodException
+         * @throws RefuseException
+         */
+        @Override
+        protected ACLMessage handleRequest(ACLMessage request) throws NotUnderstoodException, RefuseException {
+            ACLMessage agree = request.createReply();
+            agree.setPerformative(ACLMessage.AGREE);
+            List jugadoresClasificacion = new jade.util.leap.ArrayList();
+            List puntuacionesClasificacion = new jade.util.leap.ArrayList();
+            for(int i=0; i<jugadores.size(); i++){
+                jugadoresClasificacion.add(jugadores.get(i));
+                if(puntuaciones[i] == juego.getMinVictorias()){
+                    puntuacionesClasificacion.add(Puntuacion.VICTORIA.getValor());
+                }else{
+                    puntuacionesClasificacion.add(Puntuacion.DERROTA.getValor());
+                }
+            }
+            try{
+                manager.fillContent(agree, new ClasificacionJuego(juego, jugadoresClasificacion, puntuacionesClasificacion));
+            }catch(Codec.CodecException | OntologyException e) {
+                Logger.getLogger(AgenteTableroConecta4.class.getName()).log(Level.SEVERE, null, e);
+            }
+            return agree;
+        }
+        
+        /**
+         * Funcion que prepara y envia la respuesta a la solicitud
+         * @param request Mensaje con la solicitud.
+         * @param response Mensaje de informacion para responder.
+         * @return Mensaje con la respuesta.
+         * @throws FailureException
+         */
+        @Override
+        protected ACLMessage prepareResultNotification(ACLMessage request, ACLMessage response) throws FailureException {
+            ACLMessage inform = request.createReply();
+            inform.setPerformative(ACLMessage.INFORM);
+            addBehaviour(new TareaFinalizarAgente(myAgent,TIEMPO_DE_ESPERA));
+            return inform;
+        }
+          
     }
     
     public class TareaProcesarMovimiento extends CyclicBehaviour {
@@ -394,10 +467,45 @@ public class AgenteTableroConecta4 extends Agent{
                     System.out.println(movAnt.getPosicion().getCoorX()+", "+movAnt.getPosicion().getCoorY());
                     gui.marcarVictoria(movAnt.getPosicion().getCoorX(), movAnt.getPosicion().getCoorY(), movAnt.getFicha().getColor().ordinal()+1);
                     gui.sumarVictoria((movAnt.getFicha().getColor().ordinal()+1)%2);
+                    if(gui.getPuntuacionJ1() == juego.getMinVictorias() || gui.getPuntuacionJ2() == juego.getMinVictorias()){
+                        if(repeticion){
+                            puntuaciones[JUGADOR_1] = gui.getPuntuacionJ1();
+                            puntuaciones[JUGADOR_2] = gui.getPuntuacionJ2();
+                        }
+                        MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
+                        addBehaviour(new TareaInformarResultados(myAgent,temp));
+                    }
                 }
             }
         }
     
+    }
+    
+   /**
+     * Tarea que prepara las puntuaciones y crea la tarea que informara al GrupoJuegos.
+     */
+    public class TareaFinalizarAgente extends WakerBehaviour{
+        
+        /**
+         * Inicializacion de la tarea.
+         * @param a Agente que invoca la tarea.
+         * @param timeout Tiempo que debe transcurrir para que se ejecute la tarea.
+         */
+        public TareaFinalizarAgente(Agent a, long timeout) {
+            super(a, timeout);
+        }
+
+        /**
+         * Se prepara el mensaje con las puntuaciones para el GrupoJuegos.
+         */
+        @Override
+        protected void onWake() {
+            //Se finaliza al agente
+            gui.dispose();
+            myAgent.doDelete();
+        }
+        
+        
     }
     
 }

@@ -311,4 +311,12 @@ public class Conecta4JFrame extends JFrame{
         return cadena;
     }
     
+    public int getPuntuacionJ1(){
+        return puntuaciones[JUGADOR_1];
+    }
+    
+    public int getPuntuacionJ2(){
+        return puntuaciones[JUGADOR_2];
+    }
+    
 }
