@@ -77,6 +77,7 @@ public class AgenteTableroConecta4 extends Agent{
     public static final int JUGADOR_2 = 1;
     public static final int NULL = -1;
     public static final int TIEMPO_DE_ESPERA = 60000;
+    public static final int RETARDO_MOVIMIENTOS = 2000;
     public static final Movimiento MOV_VICTORIA = new Movimiento(new Ficha(Color.AMARILLO), new Posicion(-1, -1));
     
     // Para la generación y obtención del contenido de los mensages
@@ -92,11 +93,11 @@ public class AgenteTableroConecta4 extends Agent{
     private ArrayList<Movimiento> listaMov;
     private ArrayList<Jugador> jugadores;
     private Juego juego;
-    private AID grupoJuegos;
     private int tablero[][];
     private int indexJugadorAct;
     private int puntuaciones[];
     private int partida;
+    private int minVictorias;
     private File log;
     private boolean repeticion;
     private Movimiento movAnt;
@@ -126,7 +127,6 @@ public class AgenteTableroConecta4 extends Agent{
         for(int i=0; i<cj.getListaJugadores().size(); i++){
             puntuaciones[i] = 0;
         }
-        grupoJuegos = (AID) args[3];
         partida = (int) args[1];
         log = new File("log/"+juego.getModoJuego().name()+"_"+juego.getIdJuego()+"-Partida_"+partida+".log");
         repeticion = false;
@@ -159,10 +159,11 @@ public class AgenteTableroConecta4 extends Agent{
             repeticion = true;
             LeerLog();
         }else{
+            minVictorias = juego.getMinVictorias();
             IniciarLog();
             IniciarJugada(jugadores.get(JUGADOR_1)); 
         }
-        addBehaviour(new TareaProcesarMovimiento());
+        addBehaviour(new TareaProcesarMovimiento(this,RETARDO_MOVIMIENTOS));
     }
     
     /**
@@ -189,13 +190,12 @@ public class AgenteTableroConecta4 extends Agent{
         int tmp = puntuaciones[JUGADOR_1];
         puntuaciones[JUGADOR_1] = puntuaciones[JUGADOR_2];
         puntuaciones[JUGADOR_2] = tmp;
-        gui.nuevaRonda();
+        ReiniciarTablero();
         IniciarJugada(jugadores.get(JUGADOR_1));
     }
     
     //Se prepara una nueva jugada
     public void IniciarJugada(Jugador jugadorInicial){
-//        ReiniciarTablero();
         //Mensaje para la tarea JugarPartida
         ACLMessage mensaje = new ACLMessage(ACLMessage.CFP);
         mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
@@ -239,12 +239,13 @@ public class AgenteTableroConecta4 extends Agent{
         try{
             FileWriter escritura = new FileWriter(log, true);
             escritura.write("ID:"+juego.getIdJuego()+" Partida:"+partida+"\n");
+            escritura.write("MinVictorias:"+minVictorias+"\n");
             escritura.write("Jugadores:");
             for(int i=0; i<jugadores.size(); i++){
                 escritura.write(jugadores.get(i).getNombre()+";");
             }
             escritura.write("\n");
-            escritura.close();;
+            escritura.close();
         }catch(IOException e){
             System.err.println("Error en la escritura");
         }
@@ -272,11 +273,16 @@ public class AgenteTableroConecta4 extends Agent{
                     case "ID":
                         //No se hace nada. Es una linea informativa.
                         break;
+                    case "MinVictorias":
+                        //Se obtiene el minimo de victorias para ganar la partida.
+                        minVictorias = Integer.parseInt(datos[1]);
+                        break;
                     case "Jugadores":
                         //Se colocan los jugadores en el mismo orden que la partida original.
                         String[] jug = datos[1].split(";");
-                        if(!jug[0].equals(jugadores.get(0).getNombre())){
-                            jugadores.add(jugadores.remove(0));
+                        jugadores.clear();
+                        for(int i=0; i<jug.length; i++){
+                            jugadores.add(new Jugador(jug[i], new AID(jug[i], AID.ISLOCALNAME)));
                         }
                         break;
                     default:
@@ -378,7 +384,7 @@ public class AgenteTableroConecta4 extends Agent{
                 IniciarJugada(jugadores.get(indexJugadorAct));
             }else{
                 puntuaciones[indexJugadorAct]++;
-                if(puntuaciones[indexJugadorAct] == juego.getMinVictorias()){
+                if(puntuaciones[indexJugadorAct] == minVictorias){
                     //Fin de la partida. Ya hay un ganador.
                     System.out.println("Fin del juego, Ganador:"+jugadores.get(indexJugadorAct).getNombre());
                     //Los resultados se enviaran al GrupoJuegos al finalizar la representacion (Tarea ProcesarMovimiento).
@@ -420,7 +426,7 @@ public class AgenteTableroConecta4 extends Agent{
             List puntuacionesClasificacion = new jade.util.leap.ArrayList();
             for(int i=0; i<jugadores.size(); i++){
                 jugadoresClasificacion.add(jugadores.get(i));
-                if(puntuaciones[i] == juego.getMinVictorias()){
+                if(puntuaciones[i] == minVictorias){
                     puntuacionesClasificacion.add(Puntuacion.VICTORIA.getValor());
                 }else{
                     puntuacionesClasificacion.add(Puntuacion.DERROTA.getValor());
@@ -451,10 +457,14 @@ public class AgenteTableroConecta4 extends Agent{
           
     }
     
-    public class TareaProcesarMovimiento extends CyclicBehaviour {
+    public class TareaProcesarMovimiento extends TickerBehaviour {
+
+        public TareaProcesarMovimiento(Agent a, long period) {
+            super(a, period);
+        }
     
         @Override
-        public void action(){
+        public void onTick(){
             if(!listaMov.isEmpty()){
                 Movimiento movAct = listaMov.remove(0);
                 if(!repeticion){
@@ -467,13 +477,15 @@ public class AgenteTableroConecta4 extends Agent{
                     System.out.println(movAnt.getPosicion().getCoorX()+", "+movAnt.getPosicion().getCoorY());
                     gui.marcarVictoria(movAnt.getPosicion().getCoorX(), movAnt.getPosicion().getCoorY(), movAnt.getFicha().getColor().ordinal()+1);
                     gui.sumarVictoria((movAnt.getFicha().getColor().ordinal()+1)%2);
-                    if(gui.getPuntuacionJ1() == juego.getMinVictorias() || gui.getPuntuacionJ2() == juego.getMinVictorias()){
+                    if(gui.getPuntuacionJ1() == minVictorias || gui.getPuntuacionJ2() == minVictorias){
                         if(repeticion){
                             puntuaciones[JUGADOR_1] = gui.getPuntuacionJ1();
                             puntuaciones[JUGADOR_2] = gui.getPuntuacionJ2();
                         }
                         MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
                         addBehaviour(new TareaInformarResultados(myAgent,temp));
+                    }else{
+                        gui.nuevaRonda();
                     }
                 }
             }

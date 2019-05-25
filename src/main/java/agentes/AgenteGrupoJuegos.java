@@ -218,11 +218,10 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             try {
                 for(int i=0; i<partidas.size(); i++){
                     partida++;
-                    Object[] args = new Object[4];
+                    Object[] args = new Object[3];
                     args[0] = juego;
                     args[1] = partida;
                     args[2] = partidas.get(i);
-                    args[3] = this.getAID();
                     String nombreTablero = "TableroConecta4_"+juego.getJuego().getIdJuego()+"_"+partida;
                     getContainerController().createNewAgent(nombreTablero, "agentes.AgenteTableroConecta4", args).start();
                     //Se registra el tablero en los tableros activos.
@@ -290,8 +289,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             while(!libre){
                 index--;
                 if(!emparejamientos[participantes.get(index).getId()][participantes.size()]){
-                    participantes.get(index).BYE();
-                    System.out.println(participantes.get(index).getJugador().getNombre()+": Ronda Libre. \n");
+                    participantes.get(index).sumarPuntuacion(Puntuacion.VICTORIA.getValor());
                     adjudicados[participantes.get(index).getId()] = true;
                     emparejamientos[participantes.get(index).getId()][participantes.size()] = true;
                     libre = true;
@@ -340,8 +338,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             while(!libre){
                 index--;
                 if(!emparejamientos[participantes.get(index).getId()][participantes.size()]){
-                    participantes.get(index).BYE();
-                    System.out.println(participantes.get(index).getJugador().getNombre()+": Ronda Libre. \n");
+                    participantes.get(index).sumarPuntuacion(Puntuacion.VICTORIA.getValor());
                     adjudicados[index] = true;
                     emparejamientos[participantes.get(index).getId()][participantes.size()] = true;
                     libre = true;
@@ -384,11 +381,9 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         
         if(ronda != numRondas){
             //Se juega una ronda intermedia.
-            System.out.println("Ronda "+ronda+": \n");
             organizarRonda(participantes);
         }else{
             //Se juega la ronda final.
-            System.out.println("Ronda "+numRondas+": \n");
             organizarUltimaRonda(participantes);
         }
     }
@@ -514,18 +509,12 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             if(ronda > numRondas){
                 //Se obtiene la clasificacion final.
                 Burbuja(participantes);
-                System.out.println("Resultados del Torneo: ");
-                for(int i=0; i<participantes.size(); i++){
-                    System.out.println("Puesto "+i+": "+participantes.get(i).getJugador().getNombre()+". Puntuacion: "+participantes.get(i).getPuntos()+".");
-                }
                 addBehaviour(new TareaEnvioInforme());
             }else if(ronda == numRondas){
                 //Se juega la ronda final.
-                System.out.println("Ronda "+ronda+": \n");
                 organizarUltimaRonda(participantes);
             }else{
                 //Se juega otra ronda intermedia.
-                System.out.println("Ronda "+ronda+": \n");
                 organizarRonda(participantes);
             }
         }
@@ -574,7 +563,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
     }
         
     /**
-     * Tarea que transimte la información del Mercado al Monitor.
+     * Tarea que transimte la información del resultado a la Central de Juegos.
      */
     public class TareaEnvioInforme extends OneShotBehaviour{
 
