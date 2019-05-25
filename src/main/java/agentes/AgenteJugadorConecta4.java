@@ -26,6 +26,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
+import java.util.HashMap;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -57,6 +58,9 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
     public static final int CASILLA_VACIA = 0;
     public static final int CASILLA_J1 = 2;
     public static final int CASILLA_J2 = 1;
+    public static final int ALFA_INI = -99999999; //Valor inicial de alfa.
+    public static final int BETA_INI = 99999999; //Valor inicial de beta.
+    public static final int PROFUNDIDAD = 4; //Valor de la máxima profundidad que se va a alcanzar.
     
     // Para la generación y obtención del contenido de los mensages
     private final ContentManager manager = (ContentManager) getContentManager();
@@ -71,7 +75,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
     private Juego juego;
     private Color color;
     private Random rand;
-    private int estadoTablero[][];
+    private HashMap<String,int[][]> estadoTablero;
     
     /**
      * Inicializacion del Agente y las tareas iniciales.
@@ -81,6 +85,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         
         //Incialización de variables
 	jugador = new Jugador(this.getLocalName(), this.getAID());
+        estadoTablero = new HashMap<>();
         rand = new Random();
         
         // Regisro de la Ontología
@@ -137,44 +142,317 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
     private void registrarJuego(ProponerJuego pj){
         juego = pj.getJuego();
         JuegoConecta4 jc4 = (JuegoConecta4) pj.getTipoJuego();
-        estadoTablero = new int[jc4.getTablero().getDimX()][jc4.getTablero().getDimY()];
-        IniciarParametros();
+        estadoTablero.put(juego.getIdJuego(), new int[jc4.getTablero().getDimX()][jc4.getTablero().getDimY()]);
+        IniciarParametros(pj.getJuego());
     }
     
-    private void IniciarParametros(){
+    private void IniciarParametros(Juego juego){
         color = null;
-        ReiniciarTablero();
+        ReiniciarTablero(juego);
     }
     
     //Se marcan todas las casillas del tablero como vacias.
-    public void ReiniciarTablero(){
-        for(int i=0; i<estadoTablero.length; i++){
-            for(int j=0; j<estadoTablero[i].length; j++){
-                estadoTablero[i][j] = CASILLA_VACIA;
+    public void ReiniciarTablero(Juego juego){
+        for(int i=0; i<estadoTablero.get(juego.getIdJuego()).length; i++){
+            for(int j=0; j<estadoTablero.get(juego.getIdJuego())[i].length; j++){
+                estadoTablero.get(juego.getIdJuego())[i][j] = CASILLA_VACIA;
             }
         }
     }
     
-    private Posicion calcularJugada(){
-        int columna = 0, fila = NULL;
-        while(fila == NULL){  //Modificar por el caclculo de la posicion.
-            columna = rand.nextInt(7);
-            fila = getFila(columna);
-        }
-        Posicion pos = new Posicion(fila, columna);
+//    private Posicion calcularJugada(Juego juego){
+//        int columna = 0, fila = NULL;
+//        while(fila == NULL){  //Modificar por el caclculo de la posicion.
+//            columna = rand.nextInt(7);
+//            fila = getFila(columna, juego);
+//        }
+//        Posicion pos = new Posicion(fila, columna);
+//        return pos;
+//    }
+    
+    private Posicion calcularJugada(Juego juego){
+        int columna = 0;
+        columna = alfaBeta(estadoTablero.get(juego.getIdJuego()));
+        Posicion pos = new Posicion(getFila(columna, juego), columna);
         return pos;
     }
     
-    public int getFila(int columna){
-        for(int i=0; i<estadoTablero.length; i++){
-            if(estadoTablero[estadoTablero.length-i-1][columna] == CASILLA_VACIA){
-                return estadoTablero.length-i-1;
+    public int getFila(int columna, Juego juego){
+        for(int i=0; i<estadoTablero.get(juego.getIdJuego()).length; i++){
+            if(estadoTablero.get(juego.getIdJuego())[estadoTablero.get(juego.getIdJuego()).length-i-1][columna] == CASILLA_VACIA){
+                return estadoTablero.get(juego.getIdJuego()).length-i-1;
             }
         }
         return NULL;
     }
     
-    public Estado ComprobarTablero(int coordX, int coordY, int jugador){
+    /**
+     * Función inicio del algoritmo AlfaBeta. Inicializa los valores de alfa y beta y obtiene
+     * las principales jugadas a efectuar.
+     * @param tablero Representación del tablero de juego.
+     * @param conecta Número de fichas consecutivas para ganar.
+     * @return Columna en la que se realizará la jugada.
+     */
+    private int alfaBeta(int[][] tablero){
+        //Obtiene una referencia del tablero en forma de array para trabajar facilmente con él.
+        int[][] estado = tablero.clone();
+        //Se inicializa una variable que almacenará la columna resultado.
+        int columna = 0;
+        //Se inicializa el alfa y alfa temporal (que almacenará el valor de comprobar las jugadas)
+        //para realizar las comprobaciones con la primera casilla de cada columna.
+        int alfa = ALFA_INI, alfaTmp;
+        //Se busca la posición más baja de cada columna (donde será colocada la ficha en caso de elegir dicha columna)
+        //y se inicia la poda alfa-beta con esos estados como origen.
+        for(int i=0; i<estado.length; i++){
+            int fila = getFilaEstado(i, estado);
+            //Se altera la posición como si el rival hubiera colocado una ficha en dicha columna.
+            estado[fila][i] = (color.ordinal()+1)%2;
+            //Se obtiene el valor alfa de seleccionar esta columna. 
+            alfaTmp = minValor(estado, i, fila, 0, ALFA_INI, BETA_INI);
+            //Se restaura el valor de la posición alterada al original para evitar inconsistencias en el tablero.
+            estado[fila][i] = CASILLA_VACIA;
+            //Se comprueba si el valor alfa de la selección mejora el alfa global.
+            //Si es así, se actualiza alfa y se toma dicha columna como solución temporal.
+            if(alfaTmp > alfa){
+                alfa = alfaTmp;
+                columna = i;
+            }
+        }
+        //Tras finalizar el bucle, se devuelve la columna más favorecedora.
+        return columna;
+    }
+    
+    /**
+     * Función que evalúa la jugada desde el punto de vista de Min (Humano). Busca la jugada que empeore el valor de beta
+     * y realiza la "poda" en caso necesario.
+     * @param tablero Representación del tablero de juego.
+     * @param conecta Número de fichas consecutivas para ganar.
+     * @param estado Matriz que representa el estado actual del tablero.
+     * @param columna Columna en la que se realizó la última jugada.
+     * @param fila Fila en la que se realizó la última jugada.
+     * @param profundidad Profundidad de búsqueda alcanzada actualmente.
+     * @param alfa Valor actual de alfa.
+     * @param beta Valor actual de beta.
+     * @return Valor de beta calculado en esta rama.
+     */
+    private int minValor(int[][] estado, int columna, int fila, int profundidad, int alfa, int beta){
+        //Se comprueba si, en las condiciones actuales, algún jugador ha ganado la partida.
+        if(ComprobarTablero(estado, fila, columna, color.ordinal()) == Estado.GANADOR){
+            return Heuristica(estado, fila, columna, color.ordinal());
+        }else{
+            //Se comprueba si se ha alcanzado la profundidad límite para no continuar con el algortmo.
+            if(profundidad > PROFUNDIDAD){
+                return Heuristica(estado, fila, columna, color.ordinal());
+            }else{
+                //Se obtienen los valores de los próximos mivimientos posibles y se analizan.
+                for(int i=0; i<estado.length; i++){
+                    int filaTmp = getFilaEstado(i, estado);
+                    //Se altera la posición como si este jugador hubiera colocado una ficha en dicha columna.
+                    estado[filaTmp][i] = color.ordinal();
+                    //Se obtiene el valor beta de seleccionar esta columna.
+                    int betaTmp = maxValor(estado, i, filaTmp, profundidad+1, alfa, beta);
+                    //Se comprueba si el valor beta de la selección empeora el beta global.
+                    //Si es así, se actualiza beta.
+                    if(betaTmp < beta){
+                        beta = betaTmp;
+                    }
+                    //Se restaura el valor de la posición alterada al original para evitar inconsistencias en el tablero.
+                    estado[filaTmp][i] = CASILLA_VACIA;
+                    //En el momento en que alfa sea mayor o igual a beta se corta la búsqueda por esta rama
+                    //y se devuelve alfa para compararlo con el alfa del nivel superior.
+                    if(alfa >= beta){
+                        return alfa;
+                    }
+                }
+                //Si se analiza toda la rama, se devuelve el valor actual de beta para compararlo con el alfa del nivel superior.
+                return beta;
+            }
+        }
+    }
+    
+    /**
+     * Función que evalúa la jugada desde el punto de vista de Max (CPU). Busca la jugada que mejore el valor de alfa
+     * y realiza la "poda" en caso necesario.
+     * @param tablero Representación del tablero de juego.
+     * @param conecta Número de fichas consecutivas para ganar.
+     * @param estado Matriz que representa el estado actual del tablero.
+     * @param columna Columna en la que se realizó la última jugada.
+     * @param fila Fila en la que se realizó la última jugada.
+     * @param profundidad Profundidad de búsqueda alcanzada actualmente.
+     * @param alfa Valor actual de alfa.
+     * @param beta Valor actual de beta.
+     * @return Valor de alfa calculado en esta rama.
+     */
+    private int maxValor(int[][] estado, int columna, int fila, int profundidad, int alfa, int beta){
+        //Se comprueba si, en las condiciones actuales, algún jugador ha ganado la partida.
+        if(ComprobarTablero(estado, fila, columna, (color.ordinal()+1)%2) == Estado.GANADOR){
+            return Heuristica(estado, fila, columna, (color.ordinal()+1)%2);
+        }else{
+            //Se comprueba si se ha alcanzado la profundidad límite para no continuar con el algortmo.
+            if(profundidad > PROFUNDIDAD){
+                return Heuristica(estado, fila, columna, (color.ordinal()+1)%2);
+            }else{
+                //Se obtienen los valores de los próximos mivimientos posibles y se analizan.
+                for(int i=0; i<estado.length; i++){
+                    int filaTmp = getFilaEstado(i, estado);
+                    //Se altera la posición como si la CPU hubiera colocado una ficha en dicha columna.
+                    estado[filaTmp][i] = (color.ordinal()+1)%2;
+                    //Se obtiene el valor alfa de seleccionar esta columna.
+                    int alfaTmp = minValor(estado, i, filaTmp, profundidad+1, alfa, beta);
+                    //Se comprueba si el valor alfa de la selección mejora el alfa global.
+                    //Si es así, se actualiza alfa.
+                    if(alfaTmp > alfa){
+                        alfa = alfaTmp;
+                    }
+                    //Se restaura el valor de la posición alterada al original para evitar inconsistencias en el tablero.
+                    estado[filaTmp][i] = 0;
+                    //En el momento en que alfa sea mayor o igual a beta se corta la búsqueda por esta rama
+                    //y se devuelve beta para compararlo con el beta del nivel superior.
+                    if(alfa >= beta){
+                        return beta;
+                    }
+                }
+                //Si se analiza toda la rama, se devuelve el valor actual de alfa para compararlo con el beta del nivel superior.
+                return alfa;
+            }
+        }
+    }
+    
+    public int getFilaEstado(int columna, int[][] estado){
+        for(int i=0; i<estado.length; i++){
+            if(estado[estado.length-i-1][columna] == CASILLA_VACIA){
+                return estado.length-i-1;
+            }
+        }
+        return NULL;
+    }
+    
+    public int Heuristica(int[][] tablero, int coordX, int coordY, int jugador){
+        int coordXact, coordYact, cont, valor = 0;
+        boolean fin;
+        //Vertical.
+        cont = 1;
+        //Hacia arriba.
+        coordXact = coordX;
+        coordYact = coordY-1; //Se evita comprobar la casilla central.
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordYact--;
+                cont++;
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        //Hacia abajo.
+        coordXact = coordX;
+        coordYact = coordY+1; //Se evita comprobar la casilla central.
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordYact++;
+                cont++;
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        
+        //Horizontal
+        cont = 1;
+        //Hacia la izquierda.
+        coordXact = coordX-1; //Se evita comprobar la casilla central.
+        coordYact = coordY;
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordXact--;
+                cont++;  
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        //Hacia la derecha.
+        coordXact = coordX+1; //Se evita comprobar la casilla central.
+        coordYact = coordY;
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordXact++;
+                cont++;
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        
+        //Diagonal desde la izquierda-arriba
+        cont = 1;
+        //Hacia arriba.
+        coordXact = coordX-1; 
+        coordYact = coordY-1; //Se evita comprobar la casilla central.
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordXact--;
+                coordYact--;
+                cont++; 
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        //Hacia la abajo.
+        coordXact = coordX+1; 
+        coordYact = coordY+1; //Se evita comprobar la casilla central.
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordXact++;
+                coordYact++;
+                cont++;
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        
+        //Diagonal desde la derecha-abajo
+        cont = 1;
+        //Hacia abajo.
+        coordXact = coordX-1; 
+        coordYact = coordY+1; //Se evita comprobar la casilla central.
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordXact--;
+                coordYact++;
+                cont++;  
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        //Hacia arriba.
+        coordXact = coordX+1; 
+        coordYact = coordY-1; //Se evita comprobar la casilla central.
+        fin = false;
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
+                coordXact++;
+                coordYact--;
+                cont++;
+                valor+=cont;
+            }else{
+                fin = true;
+            }
+        }
+        return valor;
+    }
+
+    public Estado ComprobarTablero(int[][] tablero, int coordX, int coordY, int jugador){
         int coordXact, coordYact, cont;
         boolean fin;
         //Vertical.
@@ -183,8 +461,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX;
         coordYact = coordY-1; //Se evita comprobar la casilla central.
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordYact--;
                 cont++;  
             }else{
@@ -198,8 +476,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX;
         coordYact = coordY+1; //Se evita comprobar la casilla central.
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordYact++;
                 cont++;  
             }else{
@@ -216,8 +494,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX-1; //Se evita comprobar la casilla central.
         coordYact = coordY;
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordXact--;
                 cont++;  
             }else{
@@ -231,8 +509,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX+1; //Se evita comprobar la casilla central.
         coordYact = coordY;
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordXact++;
                 cont++;  
             }else{
@@ -249,8 +527,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX-1; 
         coordYact = coordY-1; //Se evita comprobar la casilla central.
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordXact--;
                 coordYact--;
                 cont++;  
@@ -265,8 +543,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX+1; 
         coordYact = coordY+1; //Se evita comprobar la casilla central.
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordXact++;
                 coordYact++;
                 cont++;  
@@ -284,8 +562,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX-1; 
         coordYact = coordY+1; //Se evita comprobar la casilla central.
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordXact--;
                 coordYact++;
                 cont++;  
@@ -300,8 +578,8 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         coordXact = coordX+1; 
         coordYact = coordY-1; //Se evita comprobar la casilla central.
         fin = false;
-        while((coordXact >= 0 && coordXact < estadoTablero.length && coordYact >= 0 && coordYact < estadoTablero[0].length) && !fin){
-            if((estadoTablero[coordXact][coordYact] == jugador)){
+        while((coordXact >= 0 && coordXact < tablero.length && coordYact >= 0 && coordYact < tablero[0].length) && !fin){
+            if((tablero[coordXact][coordYact] == jugador)){
                 coordXact++;
                 coordYact--;
                 cont++;  
@@ -399,7 +677,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
                 //Si es su turno.
                 if(pm.getJugadorActivo().getAgenteJugador().getName().equals(jugador.getAgenteJugador().getName())){
                     //Se realiza el movimiento.
-                    Movimiento movimiento = new Movimiento(new Ficha(color), calcularJugada());
+                    Movimiento movimiento = new Movimiento(new Ficha(color), calcularJugada(pm.getJuego()));
                     manager.fillContent(accept, new MovimientoEntregado(pm.getJuego(), movimiento));
                 }
                 return accept;
@@ -421,22 +699,22 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
             try {
                 MovimientoEntregado me = (MovimientoEntregado) manager.extractContent(accept);
-                Movimiento movComprobacion = new Movimiento(new Ficha(me.getMovimiento().getFicha().getColor()), new Posicion(getFila(me.getMovimiento().getPosicion().getCoorY()),me.getMovimiento().getPosicion().getCoorY()));
-                estadoTablero[movComprobacion.getPosicion().getCoorX()][movComprobacion.getPosicion().getCoorY()] = me.getMovimiento().getFicha().getColor().ordinal()+1;
+                Movimiento movComprobacion = new Movimiento(new Ficha(me.getMovimiento().getFicha().getColor()), new Posicion(getFila(me.getMovimiento().getPosicion().getCoorY(), me.getJuego()),me.getMovimiento().getPosicion().getCoorY()));
+                estadoTablero.get(me.getJuego().getIdJuego())[movComprobacion.getPosicion().getCoorX()][movComprobacion.getPosicion().getCoorY()] = me.getMovimiento().getFicha().getColor().ordinal()+1;
                 //Comprobar si se continua o se ha ganado la partida
-                Estado estado = ComprobarTablero(movComprobacion.getPosicion().getCoorX(), movComprobacion.getPosicion().getCoorY(), movComprobacion.getFicha().getColor().ordinal()+1);
+                Estado estado = ComprobarTablero(estadoTablero.get(me.getJuego().getIdJuego()),movComprobacion.getPosicion().getCoorX(), movComprobacion.getPosicion().getCoorY(), movComprobacion.getFicha().getColor().ordinal()+1);
                 if(estado == Estado.GANADOR){
                     if(me.getMovimiento().getFicha().getColor() != color){
                         estado = Estado.FIN_PARTIDA;
                         System.out.println(jugador.getNombre());
-                        for(int i=0; i<estadoTablero.length; i++){
-                            for(int j=0; j<estadoTablero[0].length; j++){
-                                System.out.print(estadoTablero[i][j]+"  ");
+                        for(int i=0; i<estadoTablero.get(me.getJuego().getIdJuego()).length; i++){
+                            for(int j=0; j<estadoTablero.get(me.getJuego().getIdJuego())[0].length; j++){
+                                System.out.print(estadoTablero.get(me.getJuego().getIdJuego())[i][j]+"  ");
                             }
                             System.out.println();
                         }
                     }
-                    IniciarParametros();
+                    IniciarParametros(me.getJuego());
                 }
                 ACLMessage informDone = accept.createReply();
                 informDone.setPerformative(ACLMessage.INFORM);
