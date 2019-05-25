@@ -15,38 +15,26 @@ import jade.content.onto.OntologyException;
 import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.core.Agent;
-import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.core.behaviours.WakerBehaviour;
-import jade.domain.DFService;
-import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.FailureException;
 import jade.domain.FIPAAgentManagement.NotUnderstoodException;
 import jade.domain.FIPAAgentManagement.RefuseException;
-import jade.domain.FIPAAgentManagement.ServiceDescription;
-import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import jade.proto.AchieveREInitiator;
 import jade.proto.AchieveREResponder;
 import jade.proto.ContractNetInitiator;
 import jade.util.leap.List;
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Random;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.util.Pair;
-import juegosTablero.Vocabulario;
 import juegosTablero.Vocabulario.Color;
 import juegosTablero.Vocabulario.Estado;
 import juegosTablero.Vocabulario.Puntuacion;
@@ -62,7 +50,6 @@ import juegosTablero.dominio.elementos.Juego;
 import juegosTablero.dominio.elementos.Jugador;
 import juegosTablero.dominio.elementos.PedirMovimiento;
 import juegosTablero.dominio.elementos.Posicion;
-import juegosTablero.dominio.elementos.ProponerJuego;
 
 /**
  *
@@ -114,9 +101,6 @@ public class AgenteTableroConecta4 extends Agent{
 	Object[] args = this.getArguments();
 	CompletarJuego cj = (CompletarJuego) args[0];
         jugadores = (ArrayList<Jugador>) args[2];
-//	for(int i=0; i<cj.getListaJugadores().size(); i++){
-//            jugadores.add((Jugador)cj.getListaJugadores().get(i));
-//	}
 	juego = cj.getJuego();
         JuegoConecta4 jc4 = (JuegoConecta4) cj.getTipoJuego();
         gui = new Conecta4JFrame(jc4.getTablero().getDimY(),jc4.getTablero().getDimX(), jugadores);
@@ -139,20 +123,6 @@ public class AgenteTableroConecta4 extends Agent{
         }
         manager.registerLanguage(codec);
 	manager.registerOntology(ontologia);
-        
-        //Registro en Paginas Amarillas
-//        DFAgentDescription dfd = new DFAgentDescription();
-//        dfd.setName(getAID());
-//	ServiceDescription sd = new ServiceDescription();
-//	sd.setType("iowpengvoianpvganbanbribnoebir");
-//	sd.setName("aoengñvoianoerabvioearnbzspbn");
-//	dfd.addServices(sd);
-//	try {
-//            DFService.register(this, dfd);
-//	}
-//	catch (FIPAException fe) {
-//            fe.printStackTrace();
-//	}
 
         //Se añaden las tareas principales.
         if(log.isFile()){
@@ -171,20 +141,13 @@ public class AgenteTableroConecta4 extends Agent{
      */
     @Override
     protected void takeDown() {
-
-        //Desregistro de las Páginas Amarillas
-//        try {
-//            DFService.deregister(this);
-//	}
-//            catch (FIPAException fe) {
-//            fe.printStackTrace();
-//	}
-        
         //Se liberan los recuros y se despide
         System.out.println("Finaliza la ejecución de " + this.getName());
     }
-    
-    //Se intercambian los jugadores para una nueva ronda.
+
+    /**
+     * Se intercambian los jugadores para una nueva ronda.
+     */
     public void NuevaRonda(){
         jugadores.add(jugadores.remove(JUGADOR_1));
         int tmp = puntuaciones[JUGADOR_1];
@@ -193,8 +156,11 @@ public class AgenteTableroConecta4 extends Agent{
         ReiniciarTablero();
         IniciarJugada(jugadores.get(JUGADOR_1));
     }
-    
-    //Se prepara una nueva jugada
+
+    /**
+     * Se prepara una nueva jugada
+     * @param jugadorInicial Jugador que inicia la partida.
+     */
     public void IniciarJugada(Jugador jugadorInicial){
         //Mensaje para la tarea JugarPartida
         ACLMessage mensaje = new ACLMessage(ACLMessage.CFP);
@@ -213,8 +179,10 @@ public class AgenteTableroConecta4 extends Agent{
         //Se añade una tarea nueva.
         addBehaviour(new TareaJugarPartidaTablero(this,mensaje));
     }
-    
-    //Se marcan todas las casillas del tablero como vacias.
+
+    /**
+     * Se marcan todas las casillas del tablero como vacias.
+     */
     public void ReiniciarTablero(){
         for(int i=0; i<tablero.length; i++){
             for(int j=0; j<tablero[i].length; j++){
@@ -223,6 +191,11 @@ public class AgenteTableroConecta4 extends Agent{
         }
     }
     
+    /**
+     * Se obtiene la primera fila libre de la columna que se pasa como parámetro.
+     * @param columna Columna que se quiere comprobar.
+     * @return Coordenada de la primera fila libre en la columna.
+     */
     public int getFila(int columna){
         for(int i=0; i<tablero.length; i++){
             if(tablero[tablero.length-i-1][columna] == CASILLA_VACIA){
@@ -234,7 +207,9 @@ public class AgenteTableroConecta4 extends Agent{
     
     //Funciones para el Log de las partidas.
     
-    //Se crea el fichero log y se almacenan los primeros valores.
+    /**
+     * Se crea el fichero log y se almacenan los primeros valores.
+     */
     private void IniciarLog(){
         try{
             FileWriter escritura = new FileWriter(log, true);
@@ -251,7 +226,10 @@ public class AgenteTableroConecta4 extends Agent{
         }
     }
     
-    //Loggear un movimiento.
+    /**
+     * Se registra un movimiento.
+     * @param mov Movimiento a registrar.
+     */
     private void LogMov(Movimiento mov){
         try{
             FileWriter escritura = new FileWriter(log, true);
@@ -262,7 +240,9 @@ public class AgenteTableroConecta4 extends Agent{
         }
     }
     
-    //Leer un log existente.
+    /**
+     * Leer un log existente.
+     */
     private void LeerLog(){
         try{
             BufferedReader lectura = new BufferedReader((new FileReader(log)));
@@ -329,7 +309,6 @@ public class AgenteTableroConecta4 extends Agent{
                 if(mensaje.getPerformative() == ACLMessage.PROPOSE && mensaje.getContent()!=null){
                     try {
                         movimiento = (MovimientoEntregado) manager.extractContent(mensaje);
-                        System.out.println(getFila(movimiento.getMovimiento().getPosicion().getCoorY())+", "+movimiento.getMovimiento().getPosicion().getCoorX());
                         Movimiento movCompleto = new Movimiento(new Ficha(movimiento.getMovimiento().getFicha().getColor()), new Posicion(getFila(movimiento.getMovimiento().getPosicion().getCoorY()),movimiento.getMovimiento().getPosicion().getCoorY()));
                         tablero[movCompleto.getPosicion().getCoorX()][movCompleto.getPosicion().getCoorY()] = movimiento.getMovimiento().getFicha().getColor().ordinal()+1;
                         listaMov.add(movCompleto);
@@ -352,6 +331,10 @@ public class AgenteTableroConecta4 extends Agent{
             }   
         }
 
+        /**
+         * Se recibe el estado de la partida de parte de los jugadores y se actúa en consecuencia.
+         * @param resultNotifications Mensajes de los jugadores con el esatdo de la partida.
+         */
         @Override
         protected void handleAllResultNotifications(Vector resultNotifications) {
             boolean continuar = true;
@@ -363,13 +346,6 @@ public class AgenteTableroConecta4 extends Agent{
                         if(ej.getEstadoJuego() == Estado.GANADOR){
                             continuar = false;
                             listaMov.add(MOV_VICTORIA);
-                            System.out.println("Ganador:"+result.getSender().getName());
-                            for(int ii=0; ii<tablero.length; ii++){
-                            for(int j=0; j<tablero[0].length; j++){
-                                System.out.print(tablero[ii][j]+"  ");
-                            }
-                            System.out.println();
-                        }
                         }
                     }catch(Codec.CodecException | OntologyException e){
                         Logger.getLogger(AgenteTableroConecta4.class.getName()).log(Level.SEVERE, null, e);
@@ -386,7 +362,6 @@ public class AgenteTableroConecta4 extends Agent{
                 puntuaciones[indexJugadorAct]++;
                 if(puntuaciones[indexJugadorAct] == minVictorias){
                     //Fin de la partida. Ya hay un ganador.
-                    System.out.println("Fin del juego, Ganador:"+jugadores.get(indexJugadorAct).getNombre());
                     //Los resultados se enviaran al GrupoJuegos al finalizar la representacion (Tarea ProcesarMovimiento).
                 }else{
                     //Se juega una nueva ronda.
@@ -457,12 +432,23 @@ public class AgenteTableroConecta4 extends Agent{
           
     }
     
+    /**
+     * Tarea que actualiza la interfaz con los movimientos efectuados.
+     */
     public class TareaProcesarMovimiento extends TickerBehaviour {
 
+        /**
+         * Inicializacion de la tarea.
+         * @param a Agente que invoca la tarea.
+         * @param period Periodo que trasncurre entre ejecuciones de la tarea.
+         */
         public TareaProcesarMovimiento(Agent a, long period) {
             super(a, period);
         }
     
+        /**
+         * Se seleciona el siguiente movimiento de la lista (si hay) y se actualiza la interfaz.
+         */
         @Override
         public void onTick(){
             if(!listaMov.isEmpty()){
@@ -470,21 +456,28 @@ public class AgenteTableroConecta4 extends Agent{
                 if(!repeticion){
                   LogMov(movAct);  
                 }
+                //Si no es el movimiento de Victoria.
                 if((movAct.getPosicion().getCoorX() != MOV_VICTORIA.getPosicion().getCoorX()) && (movAct.getPosicion().getCoorY() != MOV_VICTORIA.getPosicion().getCoorY())){
+                    //Se actualiza la interfaz.
                     gui.instertarFicha(movAct.getFicha().getColor().ordinal()+1, movAct.getPosicion().getCoorY(), movAct.getPosicion().getCoorX());
                     movAnt = movAct;
+                //Si es el movimiento de Victoria.
                 }else{
-                    System.out.println(movAnt.getPosicion().getCoorX()+", "+movAnt.getPosicion().getCoorY());
+                    //Se señala la victoria en la interfaz.
                     gui.marcarVictoria(movAnt.getPosicion().getCoorX(), movAnt.getPosicion().getCoorY(), movAnt.getFicha().getColor().ordinal()+1);
                     gui.sumarVictoria((movAnt.getFicha().getColor().ordinal()+1)%2);
+                    //Si ya hay un ganador.
                     if(gui.getPuntuacionJ1() == minVictorias || gui.getPuntuacionJ2() == minVictorias){
                         if(repeticion){
                             puntuaciones[JUGADOR_1] = gui.getPuntuacionJ1();
                             puntuaciones[JUGADOR_2] = gui.getPuntuacionJ2();
                         }
+                        //Se finaliza la partida.
                         MessageTemplate temp = MessageTemplate.and(MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
                         addBehaviour(new TareaInformarResultados(myAgent,temp));
+                    //Si aun no hay ganador.
                     }else{
+                        //Se inicia una nueva ronda.
                         gui.nuevaRonda();
                     }
                 }

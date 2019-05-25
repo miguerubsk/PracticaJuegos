@@ -15,10 +15,8 @@ import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.OneShotBehaviour;
-import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.FIPAAgentManagement.FailureException;
 import jade.domain.FIPAAgentManagement.NotUnderstoodException;
 import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
@@ -27,7 +25,6 @@ import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.AchieveREInitiator;
-import jade.proto.AchieveREResponder;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionResponder;
 import jade.util.leap.List;
@@ -47,7 +44,6 @@ import juegosTablero.aplicacion.OntologiaJuegoConecta4;
 import juegosTablero.dominio.elementos.ClasificacionJuego;
 import juegosTablero.dominio.elementos.CompletarJuego;
 import juegosTablero.dominio.elementos.Grupo;
-import juegosTablero.dominio.elementos.Juego;
 import juegosTablero.dominio.elementos.JuegoAceptado;
 import juegosTablero.dominio.elementos.Jugador;
 import juegosTablero.dominio.elementos.Motivacion;
@@ -193,7 +189,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
     }
     
     /**
-     * Funcion que devuelva el emparejamiento para una partida
+     * Funcion que devuelve el emparejamiento para una partida
      * @param j1 Primer jugador de la partida.
      * @param j2 Segundo jugador de la partida.
      * @return ArrayList con la pareja de jugadores.
@@ -205,6 +201,10 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         return emparejamento;
     }
     
+    /**
+     * Funcion que crea los tableros necesarios para jugar las partidas de una ronda.
+     * @param partidas Emparejamientos de jugadores de una ronda.
+     */
     public void jugarRonda(ArrayList<ArrayList<Jugador>> partidas){
         if(juego.getJuego().getTipoJuego() == TipoJuego.BARCOS){
             //Se crea el tablero para los Barquitos.
@@ -349,7 +349,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         //Array que almacena los emparejamientos de la ronda.
         ArrayList<ArrayList<Jugador>> partidas = new ArrayList<>();
         
-        //Se emparejan los participantes y se juegan las partidas.
+        //Se emparejan los participantes.
         for(int i=0; i<participantes.size(); i++){
             for(int j=0; j<participantes.size(); j++){
                 if(!adjudicados[i] && !adjudicados[j] && !emparejamientos[participantes.get(i).getId()][participantes.get(j).getId()]){
@@ -362,6 +362,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             }
         }
         
+        //Se juegan las partidas.
         jugarRonda(partidas);
     }
     
@@ -369,6 +370,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
      * Funcion que organiza un torneo por emparejamiento suizo.
      */
     public void torneoSuizo(){
+        //Se calcula el numero de rondas del torneo.
         numRondas = calcularRondas(jugadores.size());
         
         //Matriz que almacena los participantes que han sido emparejados.
@@ -388,6 +390,9 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
         }
     }
     
+    /**
+     * Se organiza un juego nuevo (Torneo o Partida Única).
+     */
     public void organizarJuego(){
         partida = 0;
         //Se crean los participantes del juego.
@@ -396,16 +401,23 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             Participante participante = new Participante(i, jugadores.get(i));
             participantes.add(participante);
         }
+        
         ronda = 1;
+        //Si es partida única.
         if(juego.getJuego().getModoJuego() == ModoJuego.UNICO){
             ArrayList<ArrayList<Jugador>> rondas = new ArrayList<>();
             rondas.add(jugadores);
             jugarRonda(rondas);
+        //Si es torneo suizo.
         }else{
             torneoSuizo();
         }
     }
     
+    /**
+     * Se genera la clasificación a partir de los datos de los participantes.
+     * @return Clasificacion de los Jugadores y las Puntuaciones.
+     */
     public ClasificacionJuego obtenerClasificacion(){
         List jugadoresClasificacion = new jade.util.leap.ArrayList();
         List puntuacionesClasificacion = new jade.util.leap.ArrayList();
@@ -432,10 +444,18 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             super(a, mt);
         }
 
+        /**
+         * Se comprueba si se tiene implementado el juego propuesto y se acepta o rechaza según sea.
+         * @param propose Mensaje con la proposición de juego.
+         * @return Mensaje con la respuesta a la proposición.
+         * @throws NotUnderstoodException
+         * @throws RefuseException
+         */
         @Override
         protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {
             
             try {
+                //Se obtienen los datos del juego solicitado.
                 Action ac = (Action)  manager[ONTOLOGIA_BARCOS].extractContent(propose);
                 juego = (CompletarJuego) ac.getAction();
                 jugadores.clear();
@@ -443,12 +463,14 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
                     jugadores.add(it.next());
                 }
                     
+                //Si está implementado en el GrupoJuegos.
                 if(juego.getJuego().getTipoJuego() == TipoJuego.CONECTA_4 || juego.getJuego().getTipoJuego() == TipoJuego.BARCOS){
                     organizarJuego();
                     ACLMessage accept = propose.createReply();
                     accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                     manager[ONTOLOGIA_CONECTA4].fillContent(accept, new JuegoAceptado(juego.getJuego(), grupo));
                     return accept; 
+                //Si no está implementado.
                 }else{
                     ACLMessage reject = propose.createReply();
                     reject.setPerformative(ACLMessage.REJECT_PROPOSAL);
@@ -458,8 +480,6 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
             } catch (Codec.CodecException | OntologyException e) {
                 throw new NotUnderstoodException("Error durante la incializacion del torneo");
             }
-            
-            //throw new NotUnderstoodException("Remitente desconocido.\n");
         }
         
     }
@@ -488,9 +508,11 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
                 ACLMessage mensaje = (ACLMessage) responses.get(m);
                 if(mensaje.getPerformative() == ACLMessage.AGREE){
                     try{
+                        //Se obtiene la clasificacion del mensaje.
                         ClasificacionJuego cj = (ClasificacionJuego)  manager[ONTOLOGIA_CONECTA4].extractContent(mensaje);
                         for(int i=0; i<cj.getListaJugadores().size(); i++){
                             for(int j=0; j<participantes.size(); j++){
+                                //Se actualizan los puntos del jugador correspondiente.
                                 Jugador jugadorAct = (Jugador) cj.getListaJugadores().get(i);
                                 if(jugadorAct.getNombre().equals(participantes.get(j).getJugador().getNombre())){
                                     long puntos = (long) cj.getListaPuntuacion().get(i);
@@ -498,6 +520,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
                                 }
                             }
                         }
+                        //Se ordena la lista de perticipantes para obtener el ranking.
                         Collections.sort(participantes);
                     } catch (Codec.CodecException | OntologyException e) {
                         Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, e);
@@ -505,6 +528,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
                 }
             }
             
+            //Se actualiza la ronda actual.
             ronda++;
             if(ronda > numRondas){
                 //Se obtiene la clasificacion final.

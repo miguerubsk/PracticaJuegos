@@ -139,15 +139,8 @@ public class Conecta4JFrame extends JFrame{
     }
     
     public void marcarVictoria(int fila, int columna, int jugador){
-        for(int i=0; i<estadoTablero.length; i++){
-                            for(int j=0; j<estadoTablero[0].length; j++){
-                                System.out.print(estadoTablero[i][j]+"  ");
-                            }
-                            System.out.println();
-                        }
         ArrayList<Pair<Integer,Integer>> cas = ComprobarTablero(fila, columna, jugador);
         for(int i=0; i<cas.size(); i++){
-            System.out.println(cas.get(i).getKey()+", "+cas.get(i).getValue());
             tablero[cas.get(i).getKey()][cas.get(i).getValue()].removeAll();
             tablero[cas.get(i).getKey()][cas.get(i).getValue()].add(new JLabel(casillas[jugador+2]));
             tablero[cas.get(i).getKey()][cas.get(i).getValue()].repaint();

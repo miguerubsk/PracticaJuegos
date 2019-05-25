@@ -6,7 +6,6 @@
 package agentes;
 
 import jade.content.ContentManager;
-import jade.content.Predicate;
 import jade.content.lang.Codec;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.BeanOntologyException;
@@ -32,8 +31,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import juegosTablero.Vocabulario;
 import juegosTablero.Vocabulario.Motivo;
-import static juegosTablero.Vocabulario.Motivo.PARTICIPACION_EN_JUEGOS_SUPERADA;
-import static juegosTablero.Vocabulario.getOntologia;
 import juegosTablero.aplicacion.OntologiaJuegoConecta4;
 import juegosTablero.aplicacion.conecta4.EstadoJuego;
 import juegosTablero.aplicacion.conecta4.Ficha;
@@ -58,6 +55,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
     public static final int CASILLA_VACIA = 0;
     public static final int CASILLA_J1 = 2;
     public static final int CASILLA_J2 = 1;
+    public static final int MAX_JUEGOS = 100;
     public static final int ALFA_INI = -99999999; //Valor inicial de alfa.
     public static final int BETA_INI = 99999999; //Valor inicial de beta.
     public static final int PROFUNDIDAD = 4; //Valor de la máxima profundidad que se va a alcanzar.
@@ -139,6 +137,10 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         System.out.println("Finaliza la ejecución de " + this.getName());
     }
     
+    /**
+     * Se registra un nuevo juego en la lista de juegos del jugador.
+     * @param pj Elemento que contiene el juego a registrar.
+     */
     private void registrarJuego(ProponerJuego pj){
         juego = pj.getJuego();
         JuegoConecta4 jc4 = (JuegoConecta4) pj.getTipoJuego();
@@ -146,12 +148,19 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         IniciarParametros(pj.getJuego());
     }
     
+    /**
+     * Se reinician los parametros al completar una ronda.
+     * @param juego on el identificador del tablero a reiniciar.
+     */
     private void IniciarParametros(Juego juego){
         color = null;
         ReiniciarTablero(juego);
     }
-    
-    //Se marcan todas las casillas del tablero como vacias.
+
+    /**
+     * Se marcan todas las casillas del tablero como vacias.
+     * @param juego on el identificador del tablero a reiniciar.
+     */
     public void ReiniciarTablero(Juego juego){
         for(int i=0; i<estadoTablero.get(juego.getIdJuego()).length; i++){
             for(int j=0; j<estadoTablero.get(juego.getIdJuego())[i].length; j++){
@@ -159,7 +168,23 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
             }
         }
     }
+
+    /**
+     * Se obtiene la primera fila libre de la columna que se pasa como parámetro.
+     * @param columna Columna que se quiere comprobar.
+     * @param juego Juego con el identificador del tablero a comprobar.
+     * @return Coordenada de la primera fila libre en la columna.
+     */
+    public int getFila(int columna, Juego juego){
+        for(int i=0; i<estadoTablero.get(juego.getIdJuego()).length; i++){
+            if(estadoTablero.get(juego.getIdJuego())[estadoTablero.get(juego.getIdJuego()).length-i-1][columna] == CASILLA_VACIA){
+                return estadoTablero.get(juego.getIdJuego()).length-i-1;
+            }
+        }
+        return NULL;
+    }
     
+    // Se realiza un movimiento aleatorio.
 //    private Posicion calcularJugada(Juego juego){
 //        int columna = 0, fila = NULL;
 //        while(fila == NULL){  //Modificar por el caclculo de la posicion.
@@ -170,6 +195,11 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
 //        return pos;
 //    }
     
+    /**
+     * Se devuelve la posición en la que se realizará la jugada.
+     * @param juego Juego con el identificador del tablero a comprobar.
+     * @return Posicion dende realizar el movimiento.
+     */
     private Posicion calcularJugada(Juego juego){
         int columna = 0;
         columna = alfaBeta(estadoTablero.get(juego.getIdJuego()));
@@ -177,32 +207,20 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         return pos;
     }
     
-    public int getFila(int columna, Juego juego){
-        for(int i=0; i<estadoTablero.get(juego.getIdJuego()).length; i++){
-            if(estadoTablero.get(juego.getIdJuego())[estadoTablero.get(juego.getIdJuego()).length-i-1][columna] == CASILLA_VACIA){
-                return estadoTablero.get(juego.getIdJuego()).length-i-1;
-            }
-        }
-        return NULL;
-    }
-    
     /**
-     * Función inicio del algoritmo AlfaBeta. Inicializa los valores de alfa y beta y obtiene
-     * las principales jugadas a efectuar.
+     * Función inicio del algoritmo AlfaBeta. Inicializa los valores de alfa y beta y obtiene las principales jugadas a efectuar.
      * @param tablero Representación del tablero de juego.
      * @param conecta Número de fichas consecutivas para ganar.
      * @return Columna en la que se realizará la jugada.
      */
     private int alfaBeta(int[][] tablero){
-        //Obtiene una referencia del tablero en forma de array para trabajar facilmente con él.
+        //Obtiene una copia del tablero para trabajar facilmente con él.
         int[][] estado = tablero.clone();
         //Se inicializa una variable que almacenará la columna resultado.
         int columna = 0;
-        //Se inicializa el alfa y alfa temporal (que almacenará el valor de comprobar las jugadas)
-        //para realizar las comprobaciones con la primera casilla de cada columna.
+        //Se inicializa el alfa y alfa temporal (que almacenará el valor de comprobar las jugadas) para realizar las comprobaciones con la primera casilla de cada columna.
         int alfa = ALFA_INI, alfaTmp;
-        //Se busca la posición más baja de cada columna (donde será colocada la ficha en caso de elegir dicha columna)
-        //y se inicia la poda alfa-beta con esos estados como origen.
+        //Se busca la posición más baja de cada columna (donde será colocada la ficha en caso de elegir dicha columna) y se inicia la poda alfa-beta con esos estados como origen.
         for(int i=0; i<estado.length; i++){
             int fila = getFilaEstado(i, estado);
             //Se altera la posición como si el rival hubiera colocado una ficha en dicha columna.
@@ -223,10 +241,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
     }
     
     /**
-     * Función que evalúa la jugada desde el punto de vista de Min (Humano). Busca la jugada que empeore el valor de beta
-     * y realiza la "poda" en caso necesario.
-     * @param tablero Representación del tablero de juego.
-     * @param conecta Número de fichas consecutivas para ganar.
+     * Función que evalúa la jugada desde el punto de vista de Min (Jugador). Busca la jugada que empeore el valor de beta y realiza la "poda" en caso necesario.
      * @param estado Matriz que representa el estado actual del tablero.
      * @param columna Columna en la que se realizó la última jugada.
      * @param fila Fila en la que se realizó la última jugada.
@@ -244,7 +259,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
             if(profundidad > PROFUNDIDAD){
                 return Heuristica(estado, fila, columna, color.ordinal());
             }else{
-                //Se obtienen los valores de los próximos mivimientos posibles y se analizan.
+                //Se obtienen los valores de los próximos movimientos posibles y se analizan.
                 for(int i=0; i<estado.length; i++){
                     int filaTmp = getFilaEstado(i, estado);
                     //Se altera la posición como si este jugador hubiera colocado una ficha en dicha columna.
@@ -258,8 +273,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
                     }
                     //Se restaura el valor de la posición alterada al original para evitar inconsistencias en el tablero.
                     estado[filaTmp][i] = CASILLA_VACIA;
-                    //En el momento en que alfa sea mayor o igual a beta se corta la búsqueda por esta rama
-                    //y se devuelve alfa para compararlo con el alfa del nivel superior.
+                    //En el momento en que alfa sea mayor o igual a beta se corta la búsqueda por esta rama y se devuelve alfa para compararlo con el alfa del nivel superior.
                     if(alfa >= beta){
                         return alfa;
                     }
@@ -271,10 +285,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
     }
     
     /**
-     * Función que evalúa la jugada desde el punto de vista de Max (CPU). Busca la jugada que mejore el valor de alfa
-     * y realiza la "poda" en caso necesario.
-     * @param tablero Representación del tablero de juego.
-     * @param conecta Número de fichas consecutivas para ganar.
+     * Función que evalúa la jugada desde el punto de vista de Max (Rival). Busca la jugada que mejore el valor de alfa y realiza la "poda" en caso necesario.
      * @param estado Matriz que representa el estado actual del tablero.
      * @param columna Columna en la que se realizó la última jugada.
      * @param fila Fila en la que se realizó la última jugada.
@@ -286,16 +297,16 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
     private int maxValor(int[][] estado, int columna, int fila, int profundidad, int alfa, int beta){
         //Se comprueba si, en las condiciones actuales, algún jugador ha ganado la partida.
         if(ComprobarTablero(estado, fila, columna, (color.ordinal()+1)%2) == Estado.GANADOR){
-            return Heuristica(estado, fila, columna, (color.ordinal()+1)%2);
+            return -Heuristica(estado, fila, columna, (color.ordinal()+1)%2);
         }else{
             //Se comprueba si se ha alcanzado la profundidad límite para no continuar con el algortmo.
             if(profundidad > PROFUNDIDAD){
-                return Heuristica(estado, fila, columna, (color.ordinal()+1)%2);
+                return -Heuristica(estado, fila, columna, (color.ordinal()+1)%2);
             }else{
-                //Se obtienen los valores de los próximos mivimientos posibles y se analizan.
+                //Se obtienen los valores de los próximos movimientos posibles y se analizan.
                 for(int i=0; i<estado.length; i++){
                     int filaTmp = getFilaEstado(i, estado);
-                    //Se altera la posición como si la CPU hubiera colocado una ficha en dicha columna.
+                    //Se altera la posición como si el rival hubiera colocado una ficha en dicha columna.
                     estado[filaTmp][i] = (color.ordinal()+1)%2;
                     //Se obtiene el valor alfa de seleccionar esta columna.
                     int alfaTmp = minValor(estado, i, filaTmp, profundidad+1, alfa, beta);
@@ -306,8 +317,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
                     }
                     //Se restaura el valor de la posición alterada al original para evitar inconsistencias en el tablero.
                     estado[filaTmp][i] = 0;
-                    //En el momento en que alfa sea mayor o igual a beta se corta la búsqueda por esta rama
-                    //y se devuelve beta para compararlo con el beta del nivel superior.
+                    //En el momento en que alfa sea mayor o igual a beta se corta la búsqueda por esta rama y se devuelve beta para compararlo con el beta del nivel superior.
                     if(alfa >= beta){
                         return beta;
                     }
@@ -318,6 +328,12 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         }
     }
     
+    /**
+     * Se obtiene la primera fila libre del tablero de la columna que se pasa como parámetro.
+     * @param columna Columna que se quiere comprobar.
+     * @param estado Tablero que se quiere comprobar.
+     * @return Primera fila libre.
+     */
     public int getFilaEstado(int columna, int[][] estado){
         for(int i=0; i<estado.length; i++){
             if(estado[estado.length-i-1][columna] == CASILLA_VACIA){
@@ -327,6 +343,14 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         return NULL;
     }
     
+    /**
+     * Función que calcula la heurística de realizar un movimiento.
+     * @param tablero Tablero que se quiere comprobar.
+     * @param coordX Coordenada X del movimiento realizado.
+     * @param coordY Coordenada Y del movimiento realizado.
+     * @param jugador Jugador que realizó el movimiento.
+     * @return Valor heurístico del movimiento.
+     */
     public int Heuristica(int[][] tablero, int coordX, int coordY, int jugador){
         int coordXact, coordYact, cont, valor = 0;
         boolean fin;
@@ -452,6 +476,14 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         return valor;
     }
 
+    /**
+     * Función que comprueba si se ha ganado la partida.
+     * @param tablero Tablero que se quiere comprobar.
+     * @param coordX Coordenada X del movimiento realizado.
+     * @param coordY Coordenada Y del movimiento realizado.
+     * @param jugador Jugador que realizó el movimiento.
+     * @return Estado actual de la partida.
+     */
     public Estado ComprobarTablero(int[][] tablero, int coordX, int coordY, int jugador){
         int coordXact, coordYact, cont;
         boolean fin;
@@ -609,12 +641,19 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
             super(a, mt);
         }
 
+        /**
+         * Función que recibe y procesa la petición de jugar una partida.
+         * @param propose Mensaje con la partida propuesta.
+         * @return Mensaje con la respuesta a la propuesta.
+         * @throws NotUnderstoodException
+         * @throws RefuseException
+         */
         @Override
         protected ACLMessage prepareResponse(ACLMessage propose) throws NotUnderstoodException, RefuseException {
             try {
                 Action ac = (Action) manager.extractContent(propose);
                 ProponerJuego pj = (ProponerJuego) ac.getAction();
-                if(true){
+                if(estadoTablero.size() < MAX_JUEGOS){
                     registrarJuego(pj);
                     ACLMessage accept = propose.createReply();
                     accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
@@ -652,7 +691,7 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         /**
          * Funcion que procesa un mensaje CFP y acepta o rechaza la propuesta.
          * @param cfp Mensaje que se ha recibido.
-         * @return 
+         * @return Mensaje con el movimiento a realizar (o vacío sin no es su turno).
          * @throws RefuseException
          * @throws FailureException
          * @throws NotUnderstoodException
@@ -688,11 +727,11 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
         }
         
         /**
-         * 
-         * @param cfp 
-         * @param propose 
-         * @param accept 
-         * @return 
+         * Procesa el resultado del movimiento recibido del Tablero.
+         * @param cfp Mensaje de la Contract Net.
+         * @param propose Mensaje de proposición del protocolo.
+         * @param accept Mensaje con el movimiento anterior realizado.
+         * @return Mensaje con el estado de la partida tras realizar el movimiento.
          * @throws FailureException
          */
         @Override
@@ -706,13 +745,6 @@ public class AgenteJugadorConecta4 extends Agent implements Vocabulario{
                 if(estado == Estado.GANADOR){
                     if(me.getMovimiento().getFicha().getColor() != color){
                         estado = Estado.FIN_PARTIDA;
-                        System.out.println(jugador.getNombre());
-                        for(int i=0; i<estadoTablero.get(me.getJuego().getIdJuego()).length; i++){
-                            for(int j=0; j<estadoTablero.get(me.getJuego().getIdJuego())[0].length; j++){
-                                System.out.print(estadoTablero.get(me.getJuego().getIdJuego())[i][j]+"  ");
-                            }
-                            System.out.println();
-                        }
                     }
                     IniciarParametros(me.getJuego());
                 }
