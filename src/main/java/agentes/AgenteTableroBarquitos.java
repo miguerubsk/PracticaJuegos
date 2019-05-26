@@ -87,7 +87,7 @@ public class AgenteTableroBarquitos extends Agent{
     private ArrayList<Posicion> listaMov;
     private ArrayList<Jugador> jugadores;
     private Juego juego;
-    private int tablero[][];
+    private int tablero[][][];
     private int indexJugadorAct;
     private int puntuaciones[];
     private int partida;
@@ -112,7 +112,7 @@ public class AgenteTableroBarquitos extends Agent{
         JuegoBarcos jb = (JuegoBarcos) cj.getTipoJuego();
         gui = new BarquitosJFrame(jb.getTablero().getDimY(),jb.getTablero().getDimX(), jugadores);
         gui.setVisible(true);
-        tablero = new int[jb.getTablero().getDimX()][jb.getTablero().getDimY()];
+        tablero = new int[jb.getTablero().getDimX()][jb.getTablero().getDimY()][2];
         indexJugadorAct = 0; //indice del jugador que realiza la jugada actual.
         puntuaciones = new int[cj.getListaJugadores().size()];
         for(int i=0; i<cj.getListaJugadores().size(); i++){
@@ -200,7 +200,7 @@ public class AgenteTableroBarquitos extends Agent{
         try{
             manager.fillContent(mensaje, new Action(this.getAID(), new PedirMovimiento(juego, jugadorInicial)));
         }catch(Codec.CodecException | OntologyException e) {
-            Logger.getLogger(AgenteTableroConecta4.class.getName()).log(Level.SEVERE, null, e);
+            Logger.getLogger(AgenteTableroBarquitos.class.getName()).log(Level.SEVERE, null, e);
         }
         //Se añade una tarea nueva.
         addBehaviour(new TareaJugarPartidaTablero(this,mensaje));
@@ -212,7 +212,10 @@ public class AgenteTableroBarquitos extends Agent{
     public void ReiniciarTablero(){
         for(int i=0; i<tablero.length; i++){
             for(int j=0; j<tablero[i].length; j++){
-                tablero[i][j] = AGUA;
+                for (int k=0; k<2; k++){
+                    tablero[i][j][k] = AGUA;
+                }
+                
             }
         }
     }
@@ -222,14 +225,6 @@ public class AgenteTableroBarquitos extends Agent{
      * @param columna Columna que se quiere comprobar.
      * @return Coordenada de la primera fila libre en la columna.
      */
-    public int getFila(int columna){
-        for(int i=0; i<tablero.length; i++){
-            if(tablero[tablero.length-i-1][columna] == AGUA){
-                return tablero.length-i-1;
-            }
-        }
-        return NULL;
-    }
     
     //Funciones para el Log de las partidas.
     
@@ -340,7 +335,7 @@ public class AgenteTableroBarquitos extends Agent{
                     try {
                         movimiento = (MovimientoEntregado) manager.extractContent(mensaje);
                         Posicion movCompleto = new Posicion(movimiento.getMovimiento().getCoorX(),movimiento.getMovimiento().getCoorY());
-                        tablero[movCompleto.getCoorX()][movCompleto.getCoorY()] = movimiento.getMovimiento().getCoorX();
+                        tablero[movCompleto.getCoorX()][movCompleto.getCoorY()][0] = movimiento.getMovimiento().getCoorX();
                         listaMov.add(movCompleto);
                     }catch(Codec.CodecException | OntologyException e){
                         Logger.getLogger(AgenteTableroConecta4.class.getName()).log(Level.SEVERE, null, e);
