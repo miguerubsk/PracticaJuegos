@@ -41,7 +41,7 @@ public class Conecta4JFrame extends JFrame{
     private int puntuaciones[];
     
     public Conecta4JFrame(int _numColumnas, int _numFilas, ArrayList<Jugador> _jugadores){
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         this.setResizable(false);
         numColumnas = _numColumnas;
         numFilas = _numFilas;
@@ -64,7 +64,7 @@ public class Conecta4JFrame extends JFrame{
         casillas[VICTORIA_J1] = new ImageIcon("src/main/java/graficos/victoria_j1.png");
         casillas[VICTORIA_J2] = new ImageIcon("src/main/java/graficos/victoria_j2.png");
         jugadores = _jugadores;
-        puntuaciones = new int[2];
+        puntuaciones = new int[NUM_JUGADORES];
         for(int i=0; i<NUM_JUGADORES; i++){
             puntuaciones[i] = 0;
         }
@@ -87,10 +87,8 @@ public class Conecta4JFrame extends JFrame{
         Container container = this.getContentPane();
         container.removeAll();
         JPanel interfaz = new JPanel();
-//        interfaz.setLayout(new GridLayout(2,1));
         interfaz.setLayout(new BoxLayout(interfaz, BoxLayout.Y_AXIS));
         JPanel infoJugadores = new JPanel();
-//        infoJugadores.setLayout();
         Font fuenteNombres = new Font("SansSerif", Font.BOLD, 20);
         Font fuentePuntuacion = new Font("SansSerif", Font.BOLD, 50);
         JLabel imagenFichaJ1 = new JLabel(casillas[CASILLA_J1]);

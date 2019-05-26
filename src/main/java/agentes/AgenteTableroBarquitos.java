@@ -122,20 +122,14 @@ public class AgenteTableroBarquitos extends Agent{
         log = new File("log/"+juego.getModoJuego().name()+"_"+juego.getIdJuego()+"-Partida_"+partida+".log");
         repeticion = false;
         //Regisro de la Ontología
-        
-        //Registro en Página Amarillas
-        DFAgentDescription dfd = new DFAgentDescription();
-        dfd.setName(getAID());
-	ServiceDescription sd = new ServiceDescription();
-	sd.setType("iowpengvoianpvganbanbribnoebir");
-	sd.setName("aoengñvoianoerabvioearnbzspbn");
-	dfd.addServices(sd);
-	try {
-            DFService.register(this, dfd);
-	}
-	catch (FIPAException fe) {
-            fe.printStackTrace();
-	}
+        //Regisro de la Ontología
+        try {
+            ontologia = OntologiaJuegoBarcos.getInstance();
+        } catch (BeanOntologyException e) {
+            e.printStackTrace();
+        }
+        manager.registerLanguage(codec);
+	manager.registerOntology(ontologia);
         
         //Se añaden las tareas principales.
         if(log.isFile()){

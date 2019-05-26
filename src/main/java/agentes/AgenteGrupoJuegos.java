@@ -205,24 +205,24 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
      * Funcion que crea los tableros necesarios para jugar las partidas de una ronda.
      * @param partidas Emparejamientos de jugadores de una ronda.
      */
-    public void jugarRonda(ArrayList<ArrayList<Jugador>> partidas) throws StaleProxyException{
+    public void jugarRonda(ArrayList<ArrayList<Jugador>> partidas){
         if(juego.getJuego().getTipoJuego() == TipoJuego.BARCOS){
             //Se crea el tablero para los Barquitos.
-                        try {
-                            for(int i=0; i<partidas.size(); i++){
+                try {
+                    for(int i=0; i<partidas.size(); i++){
                     partida++;
                     Object[] args = new Object[3];
                     args[0] = juego;
                     args[1] = partida;
                     args[2] = partidas.get(i);
-                    String nombreTablero = "TableroConecta4_"+juego.getJuego().getIdJuego()+"_"+partida;
+                    String nombreTablero = "TableroBarquitos_"+juego.getJuego().getIdJuego()+"_"+partida;
                     getContainerController().createNewAgent(nombreTablero, "agentes.AgenteTableroBarquitos", args).start();
                     //Se registra el tablero en los tableros activos.
                     tablerosActivos.add(new AID(nombreTablero, AID.ISLOCALNAME));
-                            }
-                        }catch(StaleProxyException ex) {
-                           Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, ex);
-                        }
+                    }
+                }catch(StaleProxyException ex) {
+                    Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, ex);
+                }
         }else{
             //Se crea el tablero para el Conecta 4.
             try {
@@ -265,7 +265,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
      * Funcion para organizar una ronda intermedia.
      * @param participantes Array con los participantes del torneo.
      */
-    public void organizarRonda(ArrayList<Participante> participantes) throws StaleProxyException{
+    public void organizarRonda(ArrayList<Participante> participantes){
 
         //Vector que lleva la cuenta de los participantes asignados a alguna partida.
         boolean adjudicados[] = new boolean[participantes.size()];
@@ -333,7 +333,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
      * Funcion para realizar los emparejamientos de la ultima ronda.
      * @param participantes Array con los participantes del torneo.
      */
-    public void organizarUltimaRonda(ArrayList<Participante> participantes) throws StaleProxyException{
+    public void organizarUltimaRonda(ArrayList<Participante> participantes){
         
         //Vector que lleva la cuenta de los participantes asignados a alguna partida.
         boolean adjudicados[] = new boolean[participantes.size()];
@@ -379,7 +379,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
     /**
      * Funcion que organiza un torneo por emparejamiento suizo.
      */
-    public void torneoSuizo() throws StaleProxyException{
+    public void torneoSuizo(){
         //Se calcula el numero de rondas del torneo.
         numRondas = calcularRondas(jugadores.size());
         
@@ -403,7 +403,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
     /**
      * Se organiza un juego nuevo (Torneo o Partida Única).
      */
-    public void organizarJuego() throws StaleProxyException{
+    public void organizarJuego(){
         partida = 0;
         //Se crean los participantes del juego.
         participantes.clear();
@@ -489,10 +489,7 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
                 }
             } catch (Codec.CodecException | OntologyException e) {
                 throw new NotUnderstoodException("Error durante la incializacion del torneo");
-            } catch (StaleProxyException ex) {
-                Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, ex);
             }
-            return null;
         }
         
     }
@@ -548,19 +545,11 @@ public class AgenteGrupoJuegos extends Agent implements Vocabulario{
                 Burbuja(participantes);
                 addBehaviour(new TareaEnvioInforme());
             }else if(ronda == numRondas){
-                try {
-                    //Se juega la ronda final.
-                    organizarUltimaRonda(participantes);
-                } catch (StaleProxyException ex) {
-                    Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                //Se juega la ronda final.
+                organizarUltimaRonda(participantes);
             }else{
-                try {
-                    //Se juega otra ronda intermedia.
-                    organizarRonda(participantes);
-                } catch (StaleProxyException ex) {
-                    Logger.getLogger(AgenteGrupoJuegos.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                //Se juega otra ronda intermedia.
+                organizarRonda(participantes);
             }
         }
         

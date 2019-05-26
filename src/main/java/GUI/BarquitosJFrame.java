@@ -45,6 +45,8 @@ public class BarquitosJFrame extends JFrame{
     public BarquitosJFrame(int _numColumnas, int _numFilas, ArrayList<Jugador> _jugadores){
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setResizable(false);
+        numColumnas = _numColumnas;
+        numFilas = _numFilas;
         tablero = new JPanel[NUM_FILAS][NUM_COLUMNAS][NUM_JUGADORES];
         for(int i=0; i<NUM_FILAS; i++){
             for(int j=0; j<NUM_COLUMNAS; j++){
@@ -60,6 +62,11 @@ public class BarquitosJFrame extends JFrame{
                         estadoTablero[i][j][k] = AGUA;
                 }
             }
+       jugadores = _jugadores;
+       puntuaciones = new int[2];
+        for(int i=0; i<NUM_JUGADORES; i++){
+            puntuaciones[i] = 0;
+        }
         casillas = new ImageIcon[3];
         casillas[AGUA] = new ImageIcon("src/main/java/graficos/agua.jpg");
         casillas[BARCO] = new ImageIcon("src/main/java/graficos/barco.jpg");
@@ -100,13 +107,10 @@ public class BarquitosJFrame extends JFrame{
         Container container = this.getContentPane();
         container.removeAll();
         JPanel interfaz = new JPanel();
-//        interfaz.setLayout(new GridLayout(2,1));
         interfaz.setLayout(new BoxLayout(interfaz, BoxLayout.Y_AXIS));
         JPanel infoJugadores = new JPanel();
-//        infoJugadores.setLayout();
         Font fuenteNombres = new Font("SansSerif", Font.BOLD, 20);
         Font fuentePuntuacion = new Font("SansSerif", Font.BOLD, 50);
-        JLabel imagenFichaJ1 = new JLabel(casillas[AGUA]);
         JLabel nombreJ1 = new JLabel(jugadores.get(JUGADOR_1).getNombre());
         nombreJ1.setFont(fuenteNombres);
         JLabel puntuacionJ1 = new JLabel(Integer.toString(puntuaciones[JUGADOR_1]));
@@ -117,14 +121,11 @@ public class BarquitosJFrame extends JFrame{
         puntuacionJ2.setFont(fuentePuntuacion);
         JLabel nombreJ2 = new JLabel(jugadores.get(JUGADOR_2).getNombre());
         nombreJ2.setFont(fuenteNombres);
-        JLabel imagenFichaJ2 = new JLabel(casillas[AGUA]);
-        infoJugadores.add(imagenFichaJ1);
         infoJugadores.add(nombreJ1);
         infoJugadores.add(puntuacionJ1);
         infoJugadores.add(guion);
         infoJugadores.add(puntuacionJ2);
         infoJugadores.add(nombreJ2);
-        infoJugadores.add(imagenFichaJ2);
         JPanel tableroVisual = new JPanel();
         tableroVisual.setLayout(new GridLayout(numFilas,numColumnas));
         for(int i=0; i<numFilas; i++){
