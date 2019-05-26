@@ -32,6 +32,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -65,6 +66,7 @@ public class AgenteTableroConecta4 extends Agent{
     public static final int NULL = -1;
     public static final int TIEMPO_DE_ESPERA = 60000;
     public static final int RETARDO_MOVIMIENTOS = 2000;
+    public static final int TIEMPO_JUGADA = 2000;
     public static final Movimiento MOV_VICTORIA = new Movimiento(new Ficha(Color.AMARILLO), new Posicion(-1, -1));
     
     // Para la generación y obtención del contenido de los mensages
@@ -165,6 +167,7 @@ public class AgenteTableroConecta4 extends Agent{
         //Mensaje para la tarea JugarPartida
         ACLMessage mensaje = new ACLMessage(ACLMessage.CFP);
         mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
+        mensaje.setReplyByDate(new Date(System.currentTimeMillis() + TIEMPO_JUGADA));
         mensaje.setSender(this.getAID());
         mensaje.setLanguage(codec.getName());
         mensaje.setOntology(ontologia.getName());
