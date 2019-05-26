@@ -6,6 +6,7 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.ArrayList;
 import javafx.util.Pair;
+import javax.accessibility.AccessibleIcon;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
@@ -163,8 +164,12 @@ public class BarquitosJFrame extends JFrame{
         int numTocadosJ2 = 0;
         for(int x = 0; x < 10; x++){
             for(int y = 0; y < 10; y++){
-                if(tablero[x][y][1] == TOCADO) numTocadosJ1++;
-                if(tablero[x][y][0] == TOCADO) numTocadosJ2++;
+//                if(tablero[x][y][1].getAccessibleContext().getAccessibleIcon() == (AccessibleIcon[y]) casillas[TOCADO]){
+//                    numTocadosJ1++;
+//                }
+//                if(tablero[x][y][0].getAccessibleContext().getAccessibleIcon() == (AccessibleIcon[y]) casillas[TOCADO]){
+//                    numTocadosJ2++;
+//                }
             }
         }
         if(numTocadosJ1 == 21){
@@ -172,7 +177,7 @@ public class BarquitosJFrame extends JFrame{
         }else if(numTocadosJ2 == 21){
             return Vocabulario.Estado.ABANDONO;
         }else{
-            return Vocabulario.Estado.SEGUIR_JUGANDO;
+            return Vocabulario.Estado.ABANDONO;
         }
     }    
     

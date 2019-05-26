@@ -489,13 +489,13 @@ public class AgenteTableroBarquitos extends Agent{
                 //Si no es el movimiento de Victoria.
                 if((movAct.getCoorX() != MOV_VICTORIA.getCoorX()) && (movAct.getCoorY() != MOV_VICTORIA.getCoorY())){
                     //Se actualiza la interfaz.
-                    gui.colocarBarcos(movAct, Vocabulario.Orientacion.HORIZONTAL, int tam = 5);
+                    //gui.colocarBarcos(movAct, Vocabulario.Orientacion.HORIZONTAL, int tam = 5);
                     movAnt = movAct;
                 //Si es el movimiento de Victoria.
                 }else{
                     //Se señala la victoria en la interfaz.
-                    gui.marcarVictoria(movAnt.getCoorX(), movAnt.getCoorY(), movAnt.getFicha().getColor().ordinal()+1);
-                    gui.sumarVictoria((movAnt.getFicha().getColor().ordinal()+1)%2);
+                    //gui.marcarVictoria(movAnt.getCoorX(), movAnt.getCoorY(), movAnt.getFicha().getColor().ordinal()+1);
+                    //gui.sumarVictoria((movAnt.getFicha().getColor().ordinal()+1)%2);
                     //Si ya hay un ganador.
                     if(gui.getPuntuacionJ1() == minVictorias || gui.getPuntuacionJ2() == minVictorias){
                         if(repeticion){
