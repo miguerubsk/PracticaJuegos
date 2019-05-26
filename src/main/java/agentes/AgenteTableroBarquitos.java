@@ -23,7 +23,7 @@ import java.util.Vector;
  *
  * @author Roberto Martínez Fernández
  */
-public class AgenteTablero extends Agent{
+public class AgenteTableroBarquitos extends Agent{
     
     Conecta4JFrame gui;
     
