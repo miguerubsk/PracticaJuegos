@@ -5,7 +5,7 @@
  */
 package agentes;
 
-import GUI.Conecta4JFrame;
+import GUI.BarquitosJFrame;
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.lang.sl.SLCodec;
@@ -17,9 +17,13 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.core.behaviours.WakerBehaviour;
+import jade.domain.DFService;
+import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.FailureException;
 import jade.domain.FIPAAgentManagement.NotUnderstoodException;
 import jade.domain.FIPAAgentManagement.RefuseException;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
@@ -36,15 +40,14 @@ import java.util.Date;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import juegosTablero.Vocabulario;
 import juegosTablero.Vocabulario.Color;
 import juegosTablero.Vocabulario.Estado;
 import juegosTablero.Vocabulario.Puntuacion;
-import juegosTablero.aplicacion.OntologiaJuegoConecta4;
-import juegosTablero.aplicacion.conecta4.EstadoJuego;
-import juegosTablero.aplicacion.conecta4.Ficha;
-import juegosTablero.aplicacion.conecta4.JuegoConecta4;
-import juegosTablero.aplicacion.conecta4.Movimiento;
-import juegosTablero.aplicacion.conecta4.MovimientoEntregado;
+import juegosTablero.aplicacion.OntologiaJuegoBarcos;
+import juegosTablero.aplicacion.barcos.EstadoJuego;
+import juegosTablero.aplicacion.barcos.JuegoBarcos;
+import juegosTablero.aplicacion.barcos.MovimientoEntregado;
 import juegosTablero.dominio.elementos.ClasificacionJuego;
 import juegosTablero.dominio.elementos.CompletarJuego;
 import juegosTablero.dominio.elementos.Juego;
@@ -56,18 +59,20 @@ import juegosTablero.dominio.elementos.Posicion;
  *
  * @author Roberto Martínez Fernández
  */
-public class AgenteTableroConecta4 extends Agent{
+public class AgenteTableroBarquitos extends Agent{
     
-    public static final int CASILLA_VACIA = 0;
-    public static final int CASILLA_J1 = 2;
-    public static final int CASILLA_J2 = 1;
-    public static final int JUGADOR_1 = 0;
-    public static final int JUGADOR_2 = 1;
-    public static final int NULL = -1;
+    
+    private static final int AGUA = 0;
+    private static final int BARCO = 1;
+    private static final int TOCADO = 2;
+    private static final int DISPARO = 3;
     public static final int TIEMPO_DE_ESPERA = 60000;
     public static final int RETARDO_MOVIMIENTOS = 2000;
     public static final int TIEMPO_JUGADA = 2000;
-    public static final Movimiento MOV_VICTORIA = new Movimiento(new Ficha(Color.AMARILLO), new Posicion(-1, -1));
+    public static final int JUGADOR_1 = 0;
+    public static final int JUGADOR_2 = 1;
+    public static final int NULL = -1;
+    public static final Posicion MOV_VICTORIA = new Posicion(-1, -1);
     
     // Para la generación y obtención del contenido de los mensages
     private final ContentManager manager = (ContentManager) getContentManager();
@@ -78,18 +83,18 @@ public class AgenteTableroConecta4 extends Agent{
     // Las ontología que utilizará el agente
     private Ontology ontologia;
     
-    private Conecta4JFrame gui;
-    private ArrayList<Movimiento> listaMov;
+    private BarquitosJFrame gui;
+    private ArrayList<Posicion> listaMov;
     private ArrayList<Jugador> jugadores;
     private Juego juego;
-    private int tablero[][];
+    private int tablero[][][];
     private int indexJugadorAct;
     private int puntuaciones[];
     private int partida;
     private int minVictorias;
     private File log;
     private boolean repeticion;
-    private Movimiento movAnt;
+    private Posicion movAnt;
     
     /**
      * Inicializacion del Agente y las tareas iniciales.
@@ -104,10 +109,10 @@ public class AgenteTableroConecta4 extends Agent{
 	CompletarJuego cj = (CompletarJuego) args[0];
         jugadores = (ArrayList<Jugador>) args[2];
 	juego = cj.getJuego();
-        JuegoConecta4 jc4 = (JuegoConecta4) cj.getTipoJuego();
-        gui = new Conecta4JFrame(jc4.getTablero().getDimY(),jc4.getTablero().getDimX(), jugadores);
+        JuegoBarcos jb = (JuegoBarcos) cj.getTipoJuego();
+        gui = new BarquitosJFrame(jb.getTablero().getDimY(),jb.getTablero().getDimX(), jugadores);
         gui.setVisible(true);
-        tablero = new int[jc4.getTablero().getDimX()][jc4.getTablero().getDimY()];
+        tablero = new int[jb.getTablero().getDimX()][jb.getTablero().getDimY()][2];
         indexJugadorAct = 0; //indice del jugador que realiza la jugada actual.
         puntuaciones = new int[cj.getListaJugadores().size()];
         for(int i=0; i<cj.getListaJugadores().size(); i++){
@@ -116,16 +121,16 @@ public class AgenteTableroConecta4 extends Agent{
         partida = (int) args[1];
         log = new File("log/"+juego.getModoJuego().name()+"_"+juego.getIdJuego()+"-Partida_"+partida+".log");
         repeticion = false;
-        
+        //Regisro de la Ontología
         //Regisro de la Ontología
         try {
-            ontologia = OntologiaJuegoConecta4.getInstance();
+            ontologia = OntologiaJuegoBarcos.getInstance();
         } catch (BeanOntologyException e) {
             e.printStackTrace();
         }
         manager.registerLanguage(codec);
 	manager.registerOntology(ontologia);
-
+        
         //Se añaden las tareas principales.
         if(log.isFile()){
             repeticion = true;
@@ -138,15 +143,27 @@ public class AgenteTableroConecta4 extends Agent{
         addBehaviour(new TareaProcesarMovimiento(this,RETARDO_MOVIMIENTOS));
     }
     
+    
     /**
      * Finalzacion del Agente.
      */
     @Override
     protected void takeDown() {
+
+        //Desregistro de las Páginas Amarillas
+        try {
+            DFService.deregister(this);
+	}
+            catch (FIPAException fe) {
+            fe.printStackTrace();
+	}
+        
         //Se liberan los recuros y se despide
         System.out.println("Finaliza la ejecución de " + this.getName());
     }
-
+    
+    
+    
     /**
      * Se intercambian los jugadores para una nueva ronda.
      */
@@ -177,7 +194,7 @@ public class AgenteTableroConecta4 extends Agent{
         try{
             manager.fillContent(mensaje, new Action(this.getAID(), new PedirMovimiento(juego, jugadorInicial)));
         }catch(Codec.CodecException | OntologyException e) {
-            Logger.getLogger(AgenteTableroConecta4.class.getName()).log(Level.SEVERE, null, e);
+            Logger.getLogger(AgenteTableroBarquitos.class.getName()).log(Level.SEVERE, null, e);
         }
         //Se añade una tarea nueva.
         addBehaviour(new TareaJugarPartidaTablero(this,mensaje));
@@ -189,7 +206,10 @@ public class AgenteTableroConecta4 extends Agent{
     public void ReiniciarTablero(){
         for(int i=0; i<tablero.length; i++){
             for(int j=0; j<tablero[i].length; j++){
-                tablero[i][j] = CASILLA_VACIA;
+                for (int k=0; k<2; k++){
+                    tablero[i][j][k] = AGUA;
+                }
+                
             }
         }
     }
@@ -199,14 +219,6 @@ public class AgenteTableroConecta4 extends Agent{
      * @param columna Columna que se quiere comprobar.
      * @return Coordenada de la primera fila libre en la columna.
      */
-    public int getFila(int columna){
-        for(int i=0; i<tablero.length; i++){
-            if(tablero[tablero.length-i-1][columna] == CASILLA_VACIA){
-                return tablero.length-i-1;
-            }
-        }
-        return NULL;
-    }
     
     //Funciones para el Log de las partidas.
     
@@ -233,10 +245,10 @@ public class AgenteTableroConecta4 extends Agent{
      * Se registra un movimiento.
      * @param mov Movimiento a registrar.
      */
-    private void LogMov(Movimiento mov){
+    private void LogMov(Posicion mov){
         try{
             FileWriter escritura = new FileWriter(log, true);
-            escritura.write(mov.getFicha().getColor()+";"+mov.getPosicion().getCoorX()+";"+mov.getPosicion().getCoorY()+"\n");
+            escritura.write(mov.getCoorX()+";"+mov.getCoorY()+"\n");
             escritura.close();
         }catch(IOException e){
             System.err.println("Error en la escritura");
@@ -271,7 +283,8 @@ public class AgenteTableroConecta4 extends Agent{
                     default:
                         //Se obtienen los movimientos para reproducir la partida.
                         String[] mov = linea.split(";");
-                        Movimiento movimiento = new Movimiento(new Ficha(Color.valueOf(mov[0])), new Posicion(Integer.parseInt(mov[1]),Integer.parseInt(mov[2])));
+                        Posicion movimiento;
+                        movimiento = new Posicion(Integer.parseInt(mov[1]),Integer.parseInt(mov[2]));
                         listaMov.add(movimiento);
                         break;
                 }
@@ -281,6 +294,9 @@ public class AgenteTableroConecta4 extends Agent{
         }
         
     }
+
+    
+    
     
     //Tareas del Agente Tablero de Conecta 4.
     
@@ -312,8 +328,8 @@ public class AgenteTableroConecta4 extends Agent{
                 if(mensaje.getPerformative() == ACLMessage.PROPOSE && mensaje.getContent()!=null){
                     try {
                         movimiento = (MovimientoEntregado) manager.extractContent(mensaje);
-                        Movimiento movCompleto = new Movimiento(new Ficha(movimiento.getMovimiento().getFicha().getColor()), new Posicion(getFila(movimiento.getMovimiento().getPosicion().getCoorY()),movimiento.getMovimiento().getPosicion().getCoorY()));
-                        tablero[movCompleto.getPosicion().getCoorX()][movCompleto.getPosicion().getCoorY()] = movimiento.getMovimiento().getFicha().getColor().ordinal()+1;
+                        Posicion movCompleto = new Posicion(movimiento.getMovimiento().getCoorX(),movimiento.getMovimiento().getCoorY());
+                        tablero[movCompleto.getCoorX()][movCompleto.getCoorY()][0] = movimiento.getMovimiento().getCoorX();
                         listaMov.add(movCompleto);
                     }catch(Codec.CodecException | OntologyException e){
                         Logger.getLogger(AgenteTableroConecta4.class.getName()).log(Level.SEVERE, null, e);
@@ -455,20 +471,20 @@ public class AgenteTableroConecta4 extends Agent{
         @Override
         public void onTick(){
             if(!listaMov.isEmpty()){
-                Movimiento movAct = listaMov.remove(0);
+                Posicion movAct = listaMov.remove(0);
                 if(!repeticion){
                   LogMov(movAct);  
                 }
                 //Si no es el movimiento de Victoria.
-                if((movAct.getPosicion().getCoorX() != MOV_VICTORIA.getPosicion().getCoorX()) && (movAct.getPosicion().getCoorY() != MOV_VICTORIA.getPosicion().getCoorY())){
+                if((movAct.getCoorX() != MOV_VICTORIA.getCoorX()) && (movAct.getCoorY() != MOV_VICTORIA.getCoorY())){
                     //Se actualiza la interfaz.
-                    gui.instertarFicha(movAct.getFicha().getColor().ordinal()+1, movAct.getPosicion().getCoorY(), movAct.getPosicion().getCoorX());
+                    //gui.colocarBarcos(movAct, Vocabulario.Orientacion.HORIZONTAL, int tam = 5);
                     movAnt = movAct;
                 //Si es el movimiento de Victoria.
                 }else{
                     //Se señala la victoria en la interfaz.
-                    gui.marcarVictoria(movAnt.getPosicion().getCoorX(), movAnt.getPosicion().getCoorY(), movAnt.getFicha().getColor().ordinal()+1);
-                    gui.sumarVictoria((movAnt.getFicha().getColor().ordinal()+1)%2);
+                    //gui.marcarVictoria(movAnt.getCoorX(), movAnt.getCoorY(), movAnt.getFicha().getColor().ordinal()+1);
+                    //gui.sumarVictoria((movAnt.getFicha().getColor().ordinal()+1)%2);
                     //Si ya hay un ganador.
                     if(gui.getPuntuacionJ1() == minVictorias || gui.getPuntuacionJ2() == minVictorias){
                         if(repeticion){
@@ -517,3 +533,4 @@ public class AgenteTableroConecta4 extends Agent{
     }
     
 }
+

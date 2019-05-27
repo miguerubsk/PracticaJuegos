@@ -41,7 +41,7 @@ public class Conecta4JFrame extends JFrame{
     private int puntuaciones[];
     
     public Conecta4JFrame(int _numColumnas, int _numFilas, ArrayList<Jugador> _jugadores){
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         this.setResizable(false);
         numColumnas = _numColumnas;
         numFilas = _numFilas;
@@ -64,7 +64,7 @@ public class Conecta4JFrame extends JFrame{
         casillas[VICTORIA_J1] = new ImageIcon("src/main/java/graficos/victoria_j1.png");
         casillas[VICTORIA_J2] = new ImageIcon("src/main/java/graficos/victoria_j2.png");
         jugadores = _jugadores;
-        puntuaciones = new int[2];
+        puntuaciones = new int[NUM_JUGADORES];
         for(int i=0; i<NUM_JUGADORES; i++){
             puntuaciones[i] = 0;
         }
@@ -87,10 +87,8 @@ public class Conecta4JFrame extends JFrame{
         Container container = this.getContentPane();
         container.removeAll();
         JPanel interfaz = new JPanel();
-//        interfaz.setLayout(new GridLayout(2,1));
         interfaz.setLayout(new BoxLayout(interfaz, BoxLayout.Y_AXIS));
         JPanel infoJugadores = new JPanel();
-//        infoJugadores.setLayout();
         Font fuenteNombres = new Font("SansSerif", Font.BOLD, 20);
         Font fuentePuntuacion = new Font("SansSerif", Font.BOLD, 50);
         JLabel imagenFichaJ1 = new JLabel(casillas[CASILLA_J1]);
@@ -139,15 +137,8 @@ public class Conecta4JFrame extends JFrame{
     }
     
     public void marcarVictoria(int fila, int columna, int jugador){
-        for(int i=0; i<estadoTablero.length; i++){
-                            for(int j=0; j<estadoTablero[0].length; j++){
-                                System.out.print(estadoTablero[i][j]+"  ");
-                            }
-                            System.out.println();
-                        }
         ArrayList<Pair<Integer,Integer>> cas = ComprobarTablero(fila, columna, jugador);
         for(int i=0; i<cas.size(); i++){
-            System.out.println(cas.get(i).getKey()+", "+cas.get(i).getValue());
             tablero[cas.get(i).getKey()][cas.get(i).getValue()].removeAll();
             tablero[cas.get(i).getKey()][cas.get(i).getValue()].add(new JLabel(casillas[jugador+2]));
             tablero[cas.get(i).getKey()][cas.get(i).getValue()].repaint();
@@ -309,6 +300,14 @@ public class Conecta4JFrame extends JFrame{
         }
         cadena.clear();
         return cadena;
+    }
+    
+    public int getPuntuacionJ1(){
+        return puntuaciones[JUGADOR_1];
+    }
+    
+    public int getPuntuacionJ2(){
+        return puntuaciones[JUGADOR_2];
     }
     
 }
