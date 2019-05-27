@@ -189,19 +189,20 @@ public class AgenteJugadorBarquitos extends Agent implements Vocabulario{
             
             try {
                         Action ac = (Action) managerBarcos.extractContent(propose);
-                        ProponerJuego pj = (ProponerJuego) ac.getAction();
-                        if(pj.getJuego().getTipoJuego()!= Vocabulario.TipoJuego.BARCOS){
-                            ACLMessage refuse = propose.createReply();
-                            refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
-                            managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO));
-                            return refuse;
+                        
+                        if(propose.getSender().equals(NombreServicio.GRUPO_JUEGOS.name())){
+                            ACLMessage ponerBarcos = propose.createReply();
+                            ponerBarcos.setPerformative(ACLMessage.PROPOSE);
+                            ColocarBarcos variable = (ColocarBarcos) managerBarcos.extractContent(propose);
+                            managerBarcos.fillContent(ponerBarcos, colocarBarcos(variable));
+                            return ponerBarcos;
                         }else{
-                            if(propose.getSender().equals("AgenteTablero")){
-                                ACLMessage ponerBarcos = propose.createReply();
-                                ponerBarcos.setPerformative(ACLMessage.PROPOSE);
-                                ColocarBarcos variable = (ColocarBarcos) managerBarcos.extractContent(propose);
-                                managerBarcos.fillContent(ponerBarcos, colocarBarcos(variable));
-                                return ponerBarcos;
+                            ProponerJuego pj = (ProponerJuego) ac.getAction();
+                            if(pj.getJuego().getTipoJuego()!= Vocabulario.TipoJuego.BARCOS){
+                                ACLMessage refuse = propose.createReply();
+                                refuse.setPerformative(ACLMessage.REJECT_PROPOSAL);
+                                managerBarcos.fillContent(refuse, new Motivacion(pj.getJuego(), Motivo.TIPO_JUEGO_NO_IMPLEMENTADO));
+                                return refuse;
                             }else{
                                 ACLMessage accept = propose.createReply();
                                 accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
